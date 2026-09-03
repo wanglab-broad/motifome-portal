@@ -129,6 +129,33 @@ export function normalizeModule(n) {
 
 /* ---------- public getters ------------------------------------------------ */
 
+/* ---------------------------------------------------------------------------
+   Cache versioning.
+
+   GitHub Pages serves everything with cache-control: max-age=600, and caches JS
+   and JSON independently. So for ten minutes after a deploy a returning visitor
+   can hold OLD code while fetching NEW data, or the reverse. That is not just
+   stale text: this project keeps changing payload SHAPES (network nodes gained
+   a `logo` key; gene shards gained `nt`), and old code reading new data renders
+   silently wrong rather than failing loudly.
+
+   Every payload except the manifest is therefore fetched with ?v=<build stamp>
+   read from the manifest. New code asks for a URL the browser has never seen and
+   always gets matching data. The manifest itself is the one unversioned fetch —
+   it is 2 KB, and its ten-minute TTL is the whole remaining exposure.
+   --------------------------------------------------------------------------- */
+
+let versionTag = null;
+
+/** BASE + path, stamped with the build once the manifest is known. */
+async function vURL(path) {
+  if (versionTag == null) {
+    const m = await getManifest();
+    versionTag = (m && m.built) || '0';
+  }
+  return BASE + path + '?v=' + encodeURIComponent(versionTag);
+}
+
 export function getManifest() {
   if (!manifestPromise) {
     manifestPromise = getJSON(BASE + 'manifest.json').then(m => {
@@ -147,7 +174,7 @@ export async function getGene(refseq) {
   if (!id) return null;
   const hit = geneCache.get(id);
   if (hit !== undefined) return hit;
-  const g = await getJSON(BASE + 'gene/' + encodeURIComponent(id) + '.json');
+  const g = await getJSON(await vURL('gene/' + encodeURIComponent(id) + '.json'));
   return geneCache.set(id, g || null);
 }
 
@@ -156,14 +183,14 @@ export async function getCluster(clusterId) {
   if (!id) return null;
   const hit = clusterCache.get(id);
   if (hit !== undefined) return hit;
-  const c = await getJSON(BASE + 'cluster/' + encodeURIComponent(id) + '.json');
+  const c = await getJSON(await vURL('cluster/' + encodeURIComponent(id) + '.json'));
   return clusterCache.set(id, c || null);
 }
 
 /** ~1.6 MB, loaded once and pinned (the network view needs all of it). */
 export function getNetwork() {
   if (!networkPromise) {
-    networkPromise = getJSON(BASE + 'network.json').then(n => {
+    networkPromise = vURL('network.json').then(getJSON).then(n => {
       if (!n || !Array.isArray(n.nodes) || !Array.isArray(n.edges)) return null;
       n.meta = n.meta || {};
       n.meta.modules = Array.isArray(n.meta.modules) ? n.meta.modules : [];
@@ -187,7 +214,7 @@ export function getNetwork() {
  *  `byId` is attached for O(1) lookups, mirroring getNetwork(). */
 export function getClusterIndex() {
   if (!clusterIndexPromise) {
-    clusterIndexPromise = getJSON(BASE + 'cluster_index.json').then(ix => {
+    clusterIndexPromise = vURL('cluster_index.json').then(getJSON).then(ix => {
       if (!ix || !Array.isArray(ix.rows) || !ix.rows.length) return null;
       ix.byId = new Map(ix.rows.map(r => [r.id, r]));
       return ix;
@@ -204,7 +231,7 @@ export function getClusterIndex() {
  *  Resolves to null on any failure — the browse page renders without it. */
 export function getGoMap() {
   if (!goMapPromise) {
-    goMapPromise = getJSON(BASE + 'go_map.json').then(g => {
+    goMapPromise = vURL('go_map.json').then(getJSON).then(g => {
       if (!g || !g.branches || !g.branches.ALL) return null;
       return g;
     });
@@ -217,7 +244,7 @@ export async function getModule(n) {
   if (!m) return null;
   const hit = moduleCache.get(m);
   if (hit !== undefined) return hit;
-  const d = await getJSON(BASE + 'modules/' + m + '.json');
+  const d = await getJSON(await vURL('modules/' + m + '.json'));
   return moduleCache.set(m, d || null);
 }
 
@@ -229,8 +256,8 @@ async function loadSearch() {
   if (!searchPromise) {
     searchPromise = (async () => {
       const [rows, alias] = await Promise.all([
-        getJSON(BASE + 'search.json'),
-        getJSON(BASE + 'search_alias.json')
+        vURL('search.json').then(getJSON),
+        vURL('search_alias.json').then(getJSON)
       ]);
       const list = Array.isArray(rows) ? rows.filter(r => Array.isArray(r) && r.length >= 2) : [];
       const bySymbol = new Map();
@@ -395,5 +422,5 @@ export function cacheStats() {
 export function clearCaches() {
   geneCache.clear(); clusterCache.clear(); moduleCache.clear();
   manifestPromise = null; networkPromise = null; searchPromise = null;
-  clusterIndexPromise = null; goMapPromise = null;
+  clusterIndexPromise = null; goMapPromise = null; versionTag = null;
 }
