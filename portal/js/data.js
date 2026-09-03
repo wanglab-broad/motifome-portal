@@ -62,6 +62,7 @@ let manifestPromise     = null;
 let networkPromise      = null;
 let searchPromise       = null;
 let clusterIndexPromise = null;
+let goMapPromise = null;
 
 /* ---------- the single fetch primitive ------------------------------------ */
 
@@ -193,6 +194,22 @@ export function getClusterIndex() {
     });
   }
   return clusterIndexPromise;
+}
+
+/** The GO enrichment map (portal/data/go_map.json, 12_go_map.py).
+ *  Four branches (ALL/BP/MF/CC); each carries nodes (one enriched GO term, with
+ *  its module list, layout position and radius), similarity edges and the MCL
+ *  discs with their auto labels. Baked by importing the published figure script,
+ *  so the disc labels and per-disc term counts match Fig 3d / ED 3b exactly.
+ *  Resolves to null on any failure — the browse page renders without it. */
+export function getGoMap() {
+  if (!goMapPromise) {
+    goMapPromise = getJSON(BASE + 'go_map.json').then(g => {
+      if (!g || !g.branches || !g.branches.ALL) return null;
+      return g;
+    });
+  }
+  return goMapPromise;
 }
 
 export async function getModule(n) {
@@ -378,5 +395,5 @@ export function cacheStats() {
 export function clearCaches() {
   geneCache.clear(); clusterCache.clear(); moduleCache.clear();
   manifestPromise = null; networkPromise = null; searchPromise = null;
-  clusterIndexPromise = null;
+  clusterIndexPromise = null; goMapPromise = null;
 }

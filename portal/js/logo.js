@@ -89,6 +89,9 @@ const CSS = `
 .logo-box { width: 100%; }
 .logo-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .logo-svg text { font-family: var(--font-mono); font-weight: 700; }
+/* the compact variant: a nested <svg> in the canvas, an inline block in a row */
+.g-mini { display: block; overflow: hidden; }
+.g-mini text { font-family: var(--font-mono); font-weight: 700; }
 .logo-axis text { font-family: var(--font-mono); font-weight: 500;
                   fill: var(--ink-3); font-size: 9px; }
 .logo-axis line { stroke: var(--line-strong); stroke-width: 1; }
@@ -261,17 +264,20 @@ export function renderLogo(logo, opts) {
   return box;
 }
 
-/** Measure one glyph per distinct letter, then place every glyph exactly. */
-function placeGlyphs(svg, glyphs) {
-  const uniq = Array.from(new Set(glyphs.map(g => g.ch)));
+/** One hidden probe glyph per distinct letter, measured in a single pass. */
+function measureLetters(host, uniq) {
   const metrics = {};
   let measured = false;
+  // a detached host can never be measured, and the drill-down builds ~100 logos
+  // detached before it mounts anything: skip the probe rather than build 2,800
+  // throwaway <text> nodes on the way to the cap-height fallback
+  if (!host || !document.body || !document.body.contains(host)) return { metrics, measured };
   try {
     const probe = el('g', { style: { visibility: 'hidden' } });
     const nodes = uniq.map(ch => el('text', { x: 0, y: 0, 'font-size': 100 }, ch));
     nodes.forEach(nd => probe.appendChild(nd));
-    svg.appendChild(probe);
-    if (document.body && document.body.contains(svg)) {
+    host.appendChild(probe);
+    if (document.body && document.body.contains(host)) {
       nodes.forEach((nd, i) => {
         const b = nd.getBBox();
         if (b && b.height > 1 && b.width > 0) {
@@ -280,9 +286,13 @@ function placeGlyphs(svg, glyphs) {
         }
       });
     }
-    svg.removeChild(probe);
+    host.removeChild(probe);
   } catch (e) { /* jsdom, detached node, or a browser that refuses getBBox */ }
+  return { metrics, measured };
+}
 
+/** Place every glyph exactly inside its stack slot from the measured metrics. */
+function applyGlyphs(glyphs, metrics, measured) {
   for (const g of glyphs) {
     const m = measured && metrics[g.ch] ? metrics[g.ch]
       : { w: 60, h: 72, x: 0, y: -72 };         // monospace cap-height fallback at 100px
@@ -297,6 +307,12 @@ function placeGlyphs(svg, glyphs) {
   return measured;
 }
 
+/** Measure one glyph per distinct letter, then place every glyph exactly. */
+function placeGlyphs(svg, glyphs) {
+  const m = measureLetters(svg, Array.from(new Set(glyphs.map(g => g.ch))));
+  return applyGlyphs(glyphs, m.metrics, m.measured);
+}
+
 /** Views build the logo detached and mount it afterwards; this re-runs the glyph
  *  measurement once the SVG is live, so letters fill their column exactly. */
 export function refreshLogo(box) {
@@ -306,6 +322,147 @@ export function refreshLogo(box) {
   if (!document.body.contains(svg)) return false;
   svg.dataset.measured = placeGlyphs(svg, svg.__glyphs) ? '1' : '0';
   return svg.dataset.measured === '1';
+}
+
+/* ---- the compact variant ------------------------------------------------- */
+
+/**
+ * Columns of {ch, p} from either shape of matrix:
+ *   dense   pwm[i]  = [p, p, p, p]                       (the cluster shard)
+ *   trimmed top[i]  = [idx, pct, idx, pct, ...]          (network.json, top 4)
+ * Both are read through the same display alphabet, so T->U mapping, colouring
+ * and consensus are identical whichever one a caller hands over.
+ */
+function logoColumns(logo, letters) {
+  if (Array.isArray(logo.top)) {
+    return logo.top.map(run => {
+      const col = [];
+      for (let i = 0; i + 1 < run.length; i += 2) {
+        col.push({ ch: letters[run[i]] || '?', p: run[i + 1] / 100 });
+      }
+      return col;
+    });
+  }
+  return (logo.pwm || []).map(row => row.map((p, i) => ({ ch: letters[i] || '?', p })));
+}
+
+/**
+ * miniLogo(logo, opts) -> <svg class="g-mini">  (or null when there is no matrix)
+ *
+ * The row-height variant of renderLogo: the stacks and nothing else — no bits
+ * axis, no position ruler, no caption, no colour key. Same maths, same alphabet
+ * mapping, same letter colours; only the chrome is dropped, so a mini logo and
+ * the full logo of the same cluster are the same picture at two sizes.
+ *
+ * It returns a NESTED <svg>, which is legal inside another SVG and also drops
+ * straight into an HTML row, so the module drill-down (13px canvas rows) and the
+ * rail (30px HTML rows) share one renderer.
+ *
+ *   opts {region, h, colW, maxW, x, y, align:'start'|'end', title}
+ *
+ * INFORMATION CONTENT. network.json ships `bits` per position, computed at bake
+ * time from the FULL matrix. A trimmed column has lost mass, so recomputing H
+ * from it here would understate H and OVERSTATE the information content of every
+ * protein logo. logoBits() is used only when no bits travel with the matrix —
+ * i.e. for a dense pwm, where it is exact.
+ */
+export function miniLogo(logo, opts) {
+  opts = opts || {};
+  if (!logo) return null;
+  ensureLogoStyle();
+  const letters = displayAlphabet(logo, opts.region);
+  const isProt = letters.length > 4;
+  const K = letters.length;
+  const maxBits = Math.log2(K);
+  const cols = logoColumns(logo, letters);
+  const n = cols.length;
+  if (!n) return null;
+
+  const bits = (Array.isArray(logo.bits) && logo.bits.length === n)
+    ? logo.bits
+    : logoBits(cols.map(c => c.map(d => d.p)), K);
+
+  const h = Math.max(6, opts.h || 14);
+  const colW = Math.max(2.5, Math.min(opts.colW || 9, (opts.maxW || 1e9) / n));
+  const W = colW * n;
+  const consensus = cols.map(c => (c.length
+    ? c.reduce((a, b) => (b.p > a.p ? b : a)).ch : '?')).join('');
+
+  const svg = el('svg.g-mini', {
+    viewBox: '0 0 ' + W.toFixed(2) + ' ' + h.toFixed(2),
+    width: W.toFixed(2), height: h.toFixed(2),
+    preserveAspectRatio: 'xMidYMid meet',
+    role: 'img',
+    'aria-label': 'Sequence logo, consensus ' + consensus + ', ' + n + ' positions, ' +
+      (isProt ? 'amino-acid' : 'nucleotide') + ' alphabet'
+  });
+  if (opts.x != null) svg.setAttribute('x', (opts.align === 'end' ? opts.x - W : opts.x).toFixed(2));
+  if (opts.y != null) svg.setAttribute('y', Number(opts.y).toFixed(2));
+  if (opts.title !== false) {
+    svg.appendChild(el('title', consensus + ' — ' + n + '-position STREME motif' +
+      (logo.nsites != null ? ', ' + fmt.int(logo.nsites) + ' sites' : '')));
+  }
+
+  const glyphs = [];
+  for (let i = 0; i < n; i++) {
+    const x0 = i * colW;
+    let yTop = h - (bits[i] / maxBits) * h;
+    for (const d of cols[i].slice().sort((a, b) => b.p - a.p)) {
+      const gh = (d.p * bits[i] / maxBits) * h;
+      if (gh < 0.5) continue;                    // below half a pixel nothing renders
+      const t = el('text', {
+        x: 0, y: 0, 'font-size': 100, 'text-anchor': 'start',
+        style: { fill: letterVar(d.ch, isProt) }
+      }, d.ch);
+      svg.appendChild(t);
+      glyphs.push({ node: t, ch: d.ch, x: x0 + colW * 0.05, w: colW * 0.9, h: gh, yBottom: yTop + gh });
+      yTop += gh;
+    }
+  }
+  svg.__glyphs = glyphs;
+  svg.dataset.measured = placeGlyphs(svg, glyphs) ? '1' : '0';
+  if (svg.dataset.measured !== '1') schedulePlace(svg);
+  return svg;
+}
+
+/** Measure one batch of mini logos together: one probe, one set of metrics. */
+function placeBatch(boxes) {
+  boxes = boxes.filter(s => s.__glyphs && s.__glyphs.length &&
+    s.dataset.measured !== '1' && document.body.contains(s));
+  // the probe must live inside a mini logo: callers hand us an HTML row as often
+  // as an <svg>, and a <text> probe is only measurable under an SVG root that
+  // carries the same font rules these glyphs will be drawn with
+  if (!boxes.length) return 0;
+  const all = boxes.reduce((a, s) => a.concat(s.__glyphs), []);
+  const m = measureLetters(boxes[0], Array.from(new Set(all.map(g => g.ch))));
+  for (const s of boxes) {
+    applyGlyphs(s.__glyphs, m.metrics, m.measured);
+    s.dataset.measured = m.measured ? '1' : '0';
+  }
+  return boxes.length;
+}
+
+/**
+ * Re-measure every mini logo under `root` in ONE probe pass. The drill-down
+ * mounts ~100 of them at once and paints its canvas while still detached, so
+ * per-logo measurement would be ~800 getBBox calls; this is one.
+ */
+export function refreshMiniLogos(root) {
+  if (!root || !root.querySelectorAll) return 0;
+  return placeBatch(Array.from(root.querySelectorAll('svg.g-mini')));
+}
+
+/* A caller that builds rows detached and appends them itself never gets to call
+   refreshMiniLogos, so an unmeasured logo queues itself for the next frame and
+   the whole queue is measured in one pass. Until then it is drawn from the
+   monospace cap-height fallback, which is close but not exact. */
+let queue = null;
+function schedulePlace(svg) {
+  if (queue) { queue.push(svg); return; }
+  queue = [svg];
+  const run = () => { const q = queue; queue = null; placeBatch(q); };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+  else setTimeout(run, 0);
 }
 
 function colourKey(isProt, letters) {

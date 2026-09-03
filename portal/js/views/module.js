@@ -384,7 +384,12 @@ export async function render(host, params) {
     box.appendChild(el('section.card', [
       el('div.card-head', [
         el('h3', 'GO enrichment over carrier genes'),
-        el('div.card-tools', [trBtn, sortSeg,
+        // .card-head .card-tools (app.css) is a nowrap flex row. This is the
+        // busiest toolbar in the app -- confidence toggle, four sort buttons,
+        // a 150px-min search box and the CSV button -- and locked on one line
+        // it drove the whole page 105px wider than the viewport at 390px.
+        // Wrap by default; the row is unchanged wherever it already fits.
+        el('div.card-tools', { style: { flexWrap: 'wrap', minWidth: '0' } }, [trBtn, sortSeg,
           el('span.md-filter', search),
           csvButton('mirto-M' + n + '-terms.csv', () => rows.map(t => ({
             term: t.t, name: t.n, genes_in_module: t.k, term_size: t.K, fold: t.f, q: t.q,

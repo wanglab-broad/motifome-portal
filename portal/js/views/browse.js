@@ -5,17 +5,20 @@
      1. six facet groups whose counts are recomputed live against the OTHER
         active filters, so a zero-result combination is visible before it is
         chosen (a facet value that would empty the table shows a red 0);
-     2. a 900-point overview scatter — instances x carrier genes, log-log,
-        coloured by module — that BRUSHES the table;
+     2. the GO enrichment map — one bubble per enriched GO term, coloured by
+        module (a pie where several modules share it), laid out by gene-set
+        similarity and grouped into labelled discs. Picking a term or a disc
+        filters the table to that module's clusters;
      3. a sortable table of whatever survives.
 
-   Every number on this page comes from portal/data/cluster_index.json (built by
-   code/build/11_cluster_index.py from the 900 shards). Nothing is estimated.
-   The scatter never hides a cluster: a filtered-out point is dimmed, not
-   removed, so the reader always sees the whole corpus behind their filter.
+   Table and facet numbers come from portal/data/cluster_index.json (built by
+   code/build/11_cluster_index.py from the 900 shards); the map comes from
+   portal/data/go_map.json (12_go_map.py, which imports the published figure
+   script so the discs match Fig 3d / ED 3b exactly). Nothing is estimated.
    ============================================================================= */
 
 import * as router from '../router.js';
+import * as gomap from '../gomap.js';
 import { prefetchCluster } from '../data.js';
 import {
   el, mount, clear, fmt, emptyState, skeleton, copyLinkButton, csvButton, moduleChip,
@@ -133,15 +136,8 @@ function activeFilters() {
     region: qList(q, 'region'), module: qList(q, 'module'), size: qList(q, 'size'),
     logo: q.logo || null, terms: q.terms || null, partners: q.partners || null,
     text: String(q.q || '').trim().toLowerCase(),
-    brush: parseBrush(q.bx),
     sort: q.sort || 'id', dir: q.dir === 'asc' ? 'asc' : (q.sort ? 'desc' : 'asc')
   };
-}
-
-function parseBrush(s) {
-  if (!s) return null;
-  const p = String(s).split(',').map(Number);
-  return p.length === 4 && p.every(Number.isFinite) ? p : null;
 }
 
 /** Does row r satisfy every filter group except `skip`? */
@@ -166,10 +162,6 @@ function matches(r, f, skip) {
   if (skip !== '__text' && f.text) {
     const hay = (r.id + ' ' + r.name + ' ' + (r.cons || '') + ' ' + (r.tdisp || '')).toLowerCase();
     if (hay.indexOf(f.text) === -1) return false;
-  }
-  if (skip !== '__brush' && f.brush) {
-    const [x0, x1, y0, y1] = f.brush;
-    if (r.ni < x0 || r.ni > x1 || r.ng < y0 || r.ng > y1) return false;
   }
   return true;
 }
@@ -219,14 +211,14 @@ export async function render(container, params) {
 
   S.facetHost = facetHost;
   S.summary = el('div.br-sum');
-  S.scatterHost = el('section.rail-card', { style: { marginBottom: 'var(--s4)' } });
+  S.mapHost = el('section.rail-card', { style: { marginBottom: 'var(--s4)' } });
   S.tableHost = el('div');
 
   main.appendChild(S.summary);
-  main.appendChild(S.scatterHost);
+  main.appendChild(S.mapHost);
   main.appendChild(S.tableHost);
 
-  buildScatter();
+  buildGoMap();
   paint();
 
   router.onQuery(() => { if (mine === token) paint(); });
@@ -251,7 +243,6 @@ function paint() {
   S.shown = shown;
   paintFacets(f, shown);
   paintSummary(f, shown);
-  paintScatter(f, shown);
   paintTable(f, shown);
 }
 
@@ -276,7 +267,7 @@ function paintFacets(f, shown) {
   ]));
 
   const anyFilter = f.region.length || f.module.length || f.size.length || f.logo ||
-                    f.terms || f.partners || f.text || f.brush;
+                    f.terms || f.partners || f.text;
   if (anyFilter) {
     host.appendChild(el('button.btn.btn-sm', {
       type: 'button', style: { marginBottom: 'var(--s4)' },
@@ -337,8 +328,6 @@ function paintSummary(f, shown) {
   // live filter readout — this is a control, it moves with the facets
   s.appendChild(el('span.r2-note', ['Showing ', el('b', fmt.int(shown.length)), ' clusters']));
   s.appendChild(el('span', { style: { marginLeft: 'auto' } }, el('div.row', [
-    f.brush ? el('button.btn.btn-sm', { type: 'button',
-      on: { click: () => router.setQuery({ bx: null }) } }, 'Clear brush') : null,
     csvButton('mirto-clusters.csv', () => sortRows(shown, f), [
       { key: 'id', label: 'cluster' }, { key: 'r', label: 'region' }, { key: 'm', label: 'module' },
       { key: 'name', label: 'name' }, { key: 'tier', label: 'name_tier' },
@@ -353,159 +342,39 @@ function paintSummary(f, shown) {
 }
 
 /* =============================================================================
-   the scatter
+   the GO enrichment map — the page's overview panel
+
+   Replaces the old 900-point instances-x-genes scatter. That plot showed the
+   shape of the corpus but answered no biological question: two clusters sitting
+   near each other on it have nothing in common beyond size. The map instead
+   shows what the modules are ABOUT — one bubble per enriched GO term, split by
+   pie where several modules share a term — and doubles as a filter: pick a term
+   or a disc and the table below narrows to the motif clusters of the module(s)
+   that term is enriched in.
    ============================================================================= */
 
-const SC = { W: 900, H: 330, padL: 52, padR: 14, padT: 12, padB: 34 };
-
-function buildScatter() {
-  const host = S.scatterHost;
+function buildGoMap() {
+  const host = S.mapHost;
   clear(host);
-  const rows = S.rows;
-  const xs = rows.map(r => r.ni), ys = rows.map(r => r.ng);
-  const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
-  const y0 = Math.max(1, Math.min.apply(null, ys)), y1 = Math.max.apply(null, ys);
-  const lx = v => SC.padL + (Math.log10(Math.max(v, 1)) - Math.log10(x0)) /
-                  (Math.log10(x1) - Math.log10(x0)) * (SC.W - SC.padL - SC.padR);
-  const ly = v => SC.H - SC.padB - (Math.log10(Math.max(v, 1)) - Math.log10(y0)) /
-                  (Math.log10(y1) - Math.log10(y0)) * (SC.H - SC.padT - SC.padB);
-  const ix = (px) => Math.pow(10, Math.log10(x0) + (px - SC.padL) /
-                  (SC.W - SC.padL - SC.padR) * (Math.log10(x1) - Math.log10(x0)));
-  const iy = (py) => Math.pow(10, Math.log10(y0) + (SC.H - SC.padB - py) /
-                  (SC.H - SC.padT - SC.padB) * (Math.log10(y1) - Math.log10(y0)));
-
-  const svg = el('svg.scatter', { viewBox: '0 0 ' + SC.W + ' ' + SC.H,
-    role: 'img', 'aria-label': '900 clusters plotted by instance count against carrier genes' });
-
-  const grid = el('g.grid');
-  const axis = el('g.axis');
-  const ticks = [200, 500, 1000, 2000, 5000];
-  for (const t of ticks) {
-    if (t < x0 || t > x1) continue;
-    grid.appendChild(el('line', { x1: lx(t), x2: lx(t), y1: SC.padT, y2: SC.H - SC.padB }));
-    axis.appendChild(el('text', { x: lx(t), y: SC.H - SC.padB + 13, 'text-anchor': 'middle' },
-      fmt.int(t)));
-  }
-  for (const t of [10, 30, 100, 300, 1000, 3000]) {
-    if (t < y0 || t > y1) continue;
-    grid.appendChild(el('line', { x1: SC.padL, x2: SC.W - SC.padR, y1: ly(t), y2: ly(t) }));
-    axis.appendChild(el('text', { x: SC.padL - 6, y: ly(t) + 3, 'text-anchor': 'end' }, fmt.int(t)));
-  }
-  axis.appendChild(el('text', { x: SC.W / 2, y: SC.H - 4, 'text-anchor': 'middle' },
-    'motif instances (log)'));
-  axis.appendChild(el('text', { x: 11, y: SC.H / 2, 'text-anchor': 'middle',
-    transform: 'rotate(-90 11 ' + (SC.H / 2) + ')' }, 'carrier genes (log)'));
-  svg.appendChild(grid);
-  svg.appendChild(axis);
-
-  const pts = el('g');
-  const nodes = new Map();
-  for (const r of S.rows) {
-    const c = el('circle', {
-      cx: lx(r.ni).toFixed(1), cy: ly(r.ng).toFixed(1), r: r.npass ? 3.6 : 2.6,
-      fill: moduleColor(r.m), 'fill-opacity': r.m ? 0.85 : 0.5,
-      dataset: { id: r.id }
-    });
-    pts.appendChild(c);
-    nodes.set(r.id, c);
-  }
-  svg.appendChild(pts);
-
-  const brushRect = el('rect.brush', { x: 0, y: 0, width: 0, height: 0, hidden: true });
-  svg.appendChild(brushRect);
-
-  const tip = el('div.sc-tip', { hidden: true });
-  const wrapEl = el('div.scatter-wrap', [svg, tip]);
-
-  /* hover + click */
-  svg.addEventListener('mousemove', ev => {
-    const t = ev.target;
-    if (t && t.tagName === 'circle' && t.dataset.id) {
-      const r = S.ix.byId.get(t.dataset.id);
-      const rect = wrapEl.getBoundingClientRect();
-      tip.hidden = false;
-      tip.textContent = r.id + ' · ' + fmt.int(r.ni) + ' inst · ' + fmt.int(r.ng) + ' genes · ' +
-        (r.npass ? r.npass + ' strict partners' : 'no strict partner');
-      tip.style.left = (ev.clientX - rect.left) + 'px';
-      tip.style.top = (ev.clientY - rect.top) + 'px';
-    } else tip.hidden = true;
-  });
-  svg.addEventListener('mouseleave', () => { tip.hidden = true; });
-  svg.addEventListener('click', ev => {
-    const t = ev.target;
-    if (t && t.tagName === 'circle' && t.dataset.id && !S.dragged) {
-      router.navigate('/cluster/' + t.dataset.id, { query: { from: 'browse' } });
-    }
-  });
-
-  /* brush: drag a rectangle, and the table shows exactly what is inside it. A
-     click without a drag clears the brush (and the click handler above opens the
-     cluster under the pointer instead). */
-  let start = null;
-  const toLocal = ev => {
-    const rect = svg.getBoundingClientRect();
-    return [(ev.clientX - rect.left) / rect.width * SC.W,
-            (ev.clientY - rect.top) / rect.height * SC.H];
-  };
-  svg.addEventListener('pointerdown', ev => {
-    if (ev.button !== 0) return;
-    start = toLocal(ev);
-    S.dragged = false;
-    try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* not captureable */ }
-  });
-  svg.addEventListener('pointermove', ev => {
-    if (!start) return;
-    const p = toLocal(ev);
-    if (Math.abs(p[0] - start[0]) + Math.abs(p[1] - start[1]) > 4) S.dragged = true;
-    if (!S.dragged) return;
-    brushRect.hidden = false;
-    brushRect.setAttribute('x', Math.min(start[0], p[0]).toFixed(1));
-    brushRect.setAttribute('y', Math.min(start[1], p[1]).toFixed(1));
-    brushRect.setAttribute('width', Math.abs(p[0] - start[0]).toFixed(1));
-    brushRect.setAttribute('height', Math.abs(p[1] - start[1]).toFixed(1));
-  });
-  svg.addEventListener('pointerup', ev => {
-    if (!start) return;
-    const p = toLocal(ev);
-    const dragged = S.dragged;
-    const a = start;
-    start = null;
-    brushRect.hidden = true;
-    if (!dragged) return;                       // a plain click: handled above
-    const px0 = Math.min(a[0], p[0]), px1 = Math.max(a[0], p[0]);
-    const py0 = Math.min(a[1], p[1]), py1 = Math.max(a[1], p[1]);
-    // y is inverted on screen, so py1 (lower on screen) is the SMALLER gene count
-    router.setQuery({ bx: [Math.floor(ix(px0)), Math.ceil(ix(px1)),
-                           Math.floor(iy(py1)), Math.ceil(iy(py0))].join(',') });
-  });
-  svg.addEventListener('pointercancel', () => { start = null; brushRect.hidden = true; });
-
-  host.appendChild(el('div.r2-panelhead', [
-    el('h4', 'Corpus overview'),
-    el('span.r2-note', 'drag to brush the table · click a point to open the cluster')
+  host.appendChild(el('div', { style: { padding: 'var(--s4)' } }, [
+    el('div.gm-mount')
   ]));
-  host.appendChild(wrapEl);
-  const legend = el('div.sc-legend');
-  for (const m of [1, 2, 3, 4, 5, 6, 0]) {
-    legend.appendChild(el('span.k', { style: { display: 'inline-flex', alignItems: 'center', gap: '5px' } }, [
-      el('i', { style: { width: '9px', height: '9px', borderRadius: '50%',
-                         background: moduleColor(m), display: 'inline-block' } }),
-      m ? 'M' + m : 'no module'
-    ]));
-  }
-  legend.appendChild(el('span.dim', 'larger dot = has a strict partner'));
-  host.appendChild(legend);
-  S.scatterNodes = nodes;
-  S.brushRect = brushRect;
+  const mount = host.querySelector('.gm-mount');
+
+  // Selecting a term/disc sets the module facet. A GO term is enriched in a
+  // MODULE, not in a motif cluster, so the honest projection onto this page is
+  // "show me the clusters of that module", not "show me that term's clusters".
+  const pickModules = mods => {
+    const sel = (mods || []).filter(m => m).map(String);
+    router.setQuery({ module: sel.length ? sel.join(',') : null });
+  };
+
+  gomap.render(mount, {
+    onPickTerm: n => pickModules(n.m),
+    onPickCluster: c => pickModules(c.m)
+  });
 }
 
-function paintScatter(f, shown) {
-  if (!S.scatterNodes) return;
-  const on = new Set(shown.map(r => r.id));
-  for (const [id, node] of S.scatterNodes) {
-    node.classList.toggle('dim', !on.has(id));
-  }
-}
 
 /* =============================================================================
    the table

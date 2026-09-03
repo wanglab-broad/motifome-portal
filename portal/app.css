@@ -410,7 +410,13 @@ a.chip:hover { filter: brightness(.94); }
   padding: var(--s4) var(--s5); border-bottom: 1px solid var(--line-soft);
 }
 .card-head h3, .card-head h2 { margin: 0; }
-.card-head .card-tools { margin-left: auto; display: flex; gap: var(--s2); align-items: center; }
+/* flex-wrap is NOT optional here. .card-head wraps, so an oversized toolbar gets
+   its own line -- but a toolbar wider than the whole card then overflows it, and
+   at 390px the module GO-enrichment tools (toggle + 4 sort buttons + search + CSV)
+   drove the PAGE 105px wider than the viewport. min-width:0 lets the row shrink
+   below the intrinsic width of a min-width'd child (the 150px search input). */
+.card-head .card-tools { margin-left: auto; display: flex; gap: var(--s2);
+  align-items: center; flex-wrap: wrap; min-width: 0; }
 
 .section { margin: 0 0 var(--s7); }
 .section > header { margin-bottom: var(--s4); }

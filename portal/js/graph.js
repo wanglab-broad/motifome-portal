@@ -20,6 +20,9 @@
    ============================================================================= */
 
 import { el, clear, append, fmt, moduleLabel, REGION_LABEL, displaySeq } from './ui.js';
+// the drill-down draws real sequence logos in its node glyphs; miniLogo is the
+// row-height variant of the cluster page's renderer, not a second renderer
+import { miniLogo, refreshMiniLogos } from './logo.js';
 
 /* =============================================================================
    0.  style — injected once, scoped to .nw-* / .g-* so it cannot leak into
@@ -53,6 +56,14 @@ const CSS = `
 .nw-cockpit{display:grid;gap:var(--s4);align-items:start;grid-template-columns:minmax(0,1fr)}
 .nw-rail,.nw-insp{min-width:0}
 .nw-main{min-width:0}
+/* The rail and the inspector are FIXED-WIDTH columns (264px / 344px on a wide
+   window). Anything laid out inside them must therefore answer to the PANEL's
+   width, never to the window's: a @media (max-width:...) rule never fires on a
+   1500px window even when the box it governs is 344px wide, which is exactly
+   how the facing pages ended up painted under the score spine. These two
+   containment roots are what the @container rules further down query. */
+.nw-rail{container-type:inline-size;container-name:nwrail}
+.nw-insp{container-type:inline-size;container-name:nwinsp}
 @media (min-width:1120px){
   .nw-cockpit{grid-template-columns:264px minmax(0,1fr)}
   .nw-insp{grid-column:1/-1}
@@ -149,6 +160,10 @@ const CSS = `
 .g-colhead{font-family:var(--font-sans);font-size:10px;fill:var(--ink-3);letter-spacing:.06em;
   text-transform:uppercase;font-weight:640}
 .g-gutter{font-family:var(--font-mono);font-size:8.5px;fill:var(--ink-3);dominant-baseline:middle}
+/* the gutter tallies sit on the same rows as the stub ticks now that a stub
+   leaves on its own side, so they carry a paint-order halo in the page surface
+   colour -- without it a tick reads as a strikethrough through its own label */
+.halo{paint-order:stroke fill;stroke:var(--surface);stroke-width:2.6px;stroke-linejoin:round}
 .g-axis{stroke:var(--line);stroke-width:1}
 .g-hatch{stroke:var(--line-strong);stroke-width:.6}
 .g-tip{position:absolute;pointer-events:none;z-index:12;background:var(--surface);
@@ -215,6 +230,11 @@ const CSS = `
 .nw-row[aria-pressed="true"]{background:var(--accent-soft)}
 .nw-row .num{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--ink-2);
   font-variant-numeric:tabular-nums;text-align:right}
+/* the rail's inline logo. A 12-position amino-acid logo is 132 units wide and
+   the row must still hold a 90px name at 390px, so CSS caps it and the viewBox
+   scales the whole picture down rather than letting the grid overflow. */
+.nw-row .g-mini{width:110px;height:26px;flex:0 0 auto}
+@media (max-width:900px){.nw-row .g-mini{width:66px;height:22px}}
 .nw-row .bar2{width:60px;height:5px;border-radius:3px;background:var(--surface-3);overflow:hidden}
 .nw-row .bar2 > i{display:block;height:100%;background:var(--accent)}
 .nw-sorts{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
@@ -223,22 +243,66 @@ const CSS = `
 .nw-sorts button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ink-inv)}
 
 /* ---- inspector ----------------------------------------------------------- */
+/* a cluster name can be 62 characters of hyphenated InterPro
+   ("S-adenosyl-L-methionine-dependent methyltransferase superfamily"): let the
+   heading break rather than run off a narrow panel. */
 .nw-insp-head{padding:var(--s4) var(--s4) var(--s3)}
+.nw-insp-head h3{overflow-wrap:break-word}
+/* app.css gives every chip white-space:nowrap and a fixed 21px height, which is
+   right for a 6-character module chip and wrong for an enriched-term name:
+   "S-adenosyl-L-methionine-dependent methyltransferase superfamily" ran 74px off
+   the side of the 344px inspector, where overflow-x:hidden simply cut it. Inside
+   the inspector a chip wraps and grows; a short chip is unchanged (its single
+   line is under the 21px floor). */
+.nw-insp .chip{white-space:normal;height:auto;min-height:21px;overflow-wrap:break-word}
 .nw-kv{display:grid;grid-template-columns:1fr auto;gap:3px var(--s3);font-size:var(--fs-sm)}
 .nw-kv dt{color:var(--ink-3)}
 .nw-kv dd{margin:0;font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
-.nw-facing{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--s3);align-items:stretch}
-@media (max-width:520px){.nw-facing{grid-template-columns:1fr}}
-.nw-page{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3);background:var(--surface-2);min-width:0}
+/* ---- edge inspector: facing pages ---------------------------------------
+   STACKED IS THE DEFAULT — protein page, score spine, UTR page, one under the
+   other. The three-column "facing pages" reading is opt-in above a measured
+   container width, so a renderer that ignores @container still gets the
+   readable panel rather than three columns crushed into 344px.
+
+   The promotion threshold is arithmetic on measured intrinsic widths, not a
+   round number: a facing page's min-content is 179px (12px padding each side, a
+   12-glyph consensus strip, the "prot_0031 · tier 2" id line and a 64px
+   sparkline); the spine needs 200px to hold two 82px gate cells plus its 12px
+   gap and 8px side padding. 2×180 + 200 + 2×12 (column gap) = 584 inside the
+   inspector's 2×16px body padding = 616px of panel. Verified by sweeping the
+   panel from 260px to 900px in 4px steps: 616px is the first width at which no
+   text box in .nw-facing overflows its own content box. */
+.nw-facing{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s3);align-items:stretch}
+.nw-page{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3);background:var(--surface-2);
+  min-width:0;overflow-wrap:break-word}
 .nw-page.prot{border-top:3px solid var(--protein)}
 .nw-page.rna{border-top:3px solid var(--rna)}
-.nw-spine{display:flex;flex-direction:column;align-items:center;gap:var(--s2);
-  padding:0 var(--s2);border-left:1px dashed var(--line);border-right:1px dashed var(--line);min-width:118px}
+/* a 12-glyph consensus strip is 132px wide and the logo-support row is ~185px:
+   let both wrap inside a narrow panel instead of painting across the spine or
+   off the rail (scoped to the inspector — cluster and module pages untouched;
+   the consensus-pairs table keeps its own horizontal scroller) */
+.nw-page .g-cons,.nw-insp-head .g-cons{flex-wrap:wrap}
+.nw-insp .g-cov{flex-wrap:wrap}
+/* min-width:0, not 118px: an over-wide middle item used to grow past its own
+   grid track and paint on top of both neighbours. */
+.nw-spine{display:flex;flex-direction:column;align-items:center;gap:var(--s2);min-width:0;
+  container-type:inline-size;container-name:nwspine;
+  padding:var(--s3) 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line)}
 .nw-spine .sv{font-family:var(--font-mono);font-size:var(--fs-lg);font-weight:600;line-height:1;
   font-variant-numeric:tabular-nums}
-.nw-spine .sk2{font-size:var(--fs-xs);color:var(--ink-3);text-align:center;line-height:1.3}
-.nw-gate{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s2);width:100%}
-.nw-gate .cell{border:1px solid var(--line);border-radius:var(--r-sm);padding:4px 6px;background:var(--surface)}
+.nw-spine .sk2{font-size:var(--fs-xs);color:var(--ink-3);text-align:center;line-height:1.3;max-width:100%}
+/* one column by default; two only when the spine itself is wide enough for
+   them (measured: the 2-up grid's min-content is 149px). */
+.nw-gate{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s2);width:100%}
+.nw-gate .cell{border:1px solid var(--line);border-radius:var(--r-sm);padding:4px 6px;background:var(--surface);
+  min-width:0;overflow-wrap:break-word}
+@container nwspine (min-width:150px){.nw-gate{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container nwinsp (min-width:616px){
+  .nw-facing{grid-template-columns:minmax(0,1fr) minmax(0,200px) minmax(0,1fr)}
+  /* facing pages again: the divider turns back from rules into a spine */
+  .nw-spine{padding:0 var(--s2);border-top:0;border-bottom:0;
+    border-left:1px dashed var(--line);border-right:1px dashed var(--line)}
+}
 .nw-gate .cell .k{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
 .nw-gate .cell .v{display:block;font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--ink);
   font-variant-numeric:tabular-nums}
@@ -404,12 +468,20 @@ export function consensusGlyph(text, region, opts) {
   return host;
 }
 
-/** The deliberate fallback mark for the 68 of 519 nodes with no consensus. */
+/** The deliberate fallback mark for nodes with no consensus string.
+ *  Two counts, and they are NOT the same number, so the tooltip carries both.
+ *  68 of 519 network nodes have no consensus string; 5 of those 68 still have a
+ *  STREME matrix, so the logo-aware call sites (the canvas band, nodeRow) draw a
+ *  real logo for them and show this mark for only the remaining 63. The cons-only
+ *  call sites (the inspector node cards) show it for all 68. A single hardcoded
+ *  "68 of 519 are in this state" was true before the logo band and is now wrong
+ *  in half the places it appears. */
 export function noConsensusMark(opts) {
   opts = opts || {};
   return el('span.g-nocons', {
-    title: 'No consensus string survived for this cluster — 68 of 519 network nodes are in ' +
-           'this state. Nothing is drawn in its place.'
+    title: 'No consensus string survived for this cluster. 68 of 519 network nodes are in ' +
+           'that state; 63 of them have no STREME matrix either, so there is no logo to ' +
+           'fall back on. Nothing is drawn or synthesised in its place.'
   }, opts.label || 'no consensus');
 }
 
@@ -780,6 +852,9 @@ export function renderCanvas(host, ctx) {
   const info = paint({ svg, gEdge, gDeco, gNode, gTop, W, H, ctx, hitNodes, hitEdges, elByNode, elByEdge });
 
   host.appendChild(svg);
+  // the canvas is painted detached, so every mini logo is placed from the
+  // cap-height fallback; one measurement pass now that it is live fixes them all
+  refreshMiniLogos(svg);
 
   /* ---- tooltip --------------------------------------------------------- */
   const tip = el('div.g-tip', { hidden: true });
@@ -1018,10 +1093,14 @@ MODES.module = function (S) {
 
   const inModule = new Set(ctx.nodes.filter(n => n.m === m).map(n => n.id));
 
+  /* the two heads are centred on columns 0.34*span apart, which is under 90 units
+     on a phone — well short of the ~110 the full words need, so they used to
+     overprint each other. Below that they drop the noun both columns share. */
+  const wide = (XU - XP) >= 130;
   gDeco.appendChild(el('text', { class: 'g-colhead', x: XP, y: 16, 'text-anchor': 'middle' },
-    'protein clusters'));
+    wide ? 'protein clusters' : 'protein'));
   gDeco.appendChild(el('text', { class: 'g-colhead', x: XU, y: 16, 'text-anchor': 'middle' },
-    'UTR clusters'));
+    wide ? 'UTR clusters' : 'UTR'));
   for (const cx of [XP, XU]) {
     gDeco.appendChild(el('line', { class: 'g-axis', x1: cx, y1: 26, x2: cx, y2: H - 6,
       style: { strokeDasharray: '2 5', strokeOpacity: .7 } }));
@@ -1046,47 +1125,76 @@ MODES.module = function (S) {
       elByEdge.set(edgeKey(e), line);
       hitEdges.push({ x1, y1, x2, y2, id: edgeKey(e) });
     } else if (ctx.showCross) {
-      stubs.push({ e, inNode: ain ? a : b, outNode: ain ? b : a, side: ain ? 'right' : 'left' });
+      stubs.push({ e, inNode: ain ? a : b, outNode: ain ? b : a });
     }
   }
 
-  // ---- cross-module stubs: short, labelled with the module they leave for
+  /* ---- cross-module stubs -------------------------------------------------
+     A stub leaves on ITS OWN node's side: a protein-column node through the LEFT
+     gutter, a UTR-column node through the RIGHT one. Choosing the side by the
+     PARTNER's modality instead (what this did before) aimed every protein-column
+     stub at the right-hand gutter, so it drew a 200px horizontal line from the
+     33% column, straight across the 67% column and through every UTR label in
+     between — 76 of them in M1.
+     The stub is now a tick in the gutter only, from the panel edge outward: it
+     never re-enters the box the two columns live in, so it cannot cross a label.
+     Length is banded by destination module and drawn longest-first, so a row
+     leaving for two different modules shows both colours nested rather than one
+     hiding the other; the tally above names every destination. */
   const gutter = { left: new Map(), right: new Map() };
   for (const s of stubs) {
-    const n0 = s.inNode;
-    const x0 = colX(n0.x2), y0 = sy(n0.y2);
-    const toEdge = s.side === 'right' ? innerR + 8 : innerL - 8;
-    const tip = s.side === 'right' ? Math.min(W - 4, toEdge + 26) : Math.max(4, toEdge - 26);
-    const hot = ctx.pair && ((s.side === 'right' && ctx.pair[0] === m && s.outNode.m === ctx.pair[1]) ||
-                             (s.side === 'left' && ctx.pair[1] === m && s.outNode.m === ctx.pair[0]));
-    const line = el('polyline', {
+    s.side = s.inNode.r === 'protein' ? 'left' : 'right';
+    const bag = gutter[s.side];
+    bag.set(s.outNode.m, (bag.get(s.outNode.m) || 0) + 1);
+  }
+  const byCount = (a, b) => b[1] - a[1] || a[0] - b[0];
+  const tallyLeft = [...gutter.left.entries()].sort(byCount);
+  const tallyRight = [...gutter.right.entries()].sort(byCount);
+  const bandOf = {
+    left: new Map(tallyLeft.map(([mm], i) => [mm, i])),
+    right: new Map(tallyRight.map(([mm], i) => [mm, i]))
+  };
+  const STUB = Math.max(30, Math.min(80, GUT - 12));
+  const stubLen = k => Math.max(30, STUB - k * 8);
+  stubs.sort((a, b) => bandOf[a.side].get(a.outNode.m) - bandOf[b.side].get(b.outNode.m));
+  for (const s of stubs) {
+    const y0 = sy(s.inNode.y2);
+    const left = s.side === 'left';
+    const xIn = left ? innerL - 4 : innerR + 4;
+    const len = stubLen(bandOf[s.side].get(s.outNode.m));
+    const xOut = left ? xIn - len : xIn + len;
+    // ctx.pair is [protein module, UTR module]; read it off the endpoints so the
+    // test does not depend on which side the stub happens to leave by
+    const pm = s.inNode.r === 'protein' ? s.inNode.m : s.outNode.m;
+    const um = s.inNode.r === 'protein' ? s.outNode.m : s.inNode.m;
+    const hot = !!(ctx.pair && ctx.pair[0] === pm && ctx.pair[1] === um);
+    const line = el('line', {
       class: 'g-edge cross ' + modClass(s.outNode.m) + (s.e.cons ? '' : ' dashed'),
-      points: x0 + ',' + y0 + ' ' + toEdge + ',' + y0 + ' ' + tip + ',' + y0,
+      x1: xIn, y1: y0, x2: xOut, y2: y0,
       style: { stroke: 'var(--mc)', strokeWidth: edgeWidth(s.e, ctx.enc, dom, 0.5, 3.2),
                strokeOpacity: hot ? 0.95 : 0.45 }
     });
     gEdge.appendChild(line);
     elByEdge.set(edgeKey(s.e), line);
-    hitEdges.push({ x1: x0, y1: y0, x2: tip, y2: y0, id: edgeKey(s.e) });
-    const bag = gutter[s.side];
-    bag.set(s.outNode.m, (bag.get(s.outNode.m) || 0) + 1);
+    hitEdges.push({ x1: xIn, y1: y0, x2: xOut, y2: y0, id: edgeKey(s.e) });
   }
 
   // gutter tallies — a stub is never anonymous
-  const tallyRight = [...gutter.right.entries()].sort((a, b) => b[1] - a[1]);
-  const tallyLeft = [...gutter.left.entries()].sort((a, b) => b[1] - a[1]);
   tallyRight.forEach(([mm, c], i) => {
-    gTop.appendChild(el('text', { class: 'g-gutter ' + modClass(mm), x: W - 3, y: 40 + i * 12,
-      'text-anchor': 'end', style: { fill: 'var(--mc)' } }, '→M' + mm + ' ' + c));
+    gTop.appendChild(el('text', { class: 'g-gutter halo ' + modClass(mm), x: W - 3, y: 40 + i * 12,
+      'text-anchor': 'end', style: { fill: 'var(--mc)' } }, 'M' + mm + ' ' + c + '→'));
   });
   tallyLeft.forEach(([mm, c], i) => {
-    gTop.appendChild(el('text', { class: 'g-gutter ' + modClass(mm), x: 3, y: 40 + i * 12,
-      style: { fill: 'var(--mc)' } }, 'M' + mm + '→ ' + c));
+    gTop.appendChild(el('text', { class: 'g-gutter halo ' + modClass(mm), x: 3, y: 40 + i * 12,
+      style: { fill: 'var(--mc)' } }, '←M' + mm + ' ' + c));
   });
-  if (tallyRight.length) gTop.appendChild(el('text', { class: 'g-lab dimx', x: W - 3, y: 28,
-    'text-anchor': 'end' }, 'UTR elsewhere'));
-  if (tallyLeft.length) gTop.appendChild(el('text', { class: 'g-lab dimx', x: 3, y: 28 },
-    'protein elsewhere'));
+  /* the headers name what the gutter now tallies: the left one is this module's
+     own PROTEIN clusters leaving for UTR clusters in another module, and vice
+     versa. They are kept short because both must fit in a 320-unit viewBox. */
+  if (tallyLeft.length) gTop.appendChild(el('text', { class: 'g-lab dimx halo', x: 3, y: 28 },
+    'protein → UTR elsewhere'));
+  if (tallyRight.length) gTop.appendChild(el('text', { class: 'g-lab dimx halo', x: W - 3, y: 28,
+    'text-anchor': 'end' }, 'UTR → protein elsewhere'));
 
   // ---- nodes, with the full glyph inline (this is the level-of-detail payoff)
   const rows = ctx.nodes.filter(n => n.m === m);
@@ -1094,8 +1202,19 @@ MODES.module = function (S) {
   const maxCol = Math.max(1, nProt, rows.length - nProt);
   const rowH = (H - 58) * (908 / 1000) / Math.max(1, maxCol - 1);
   const showText = rowH >= 9;
-  const showGlyph = rowH >= 12;
-  const BAND = 88;                                   // consensus + coverage band
+  /* [ coverage 26 | gap 5 | logo <=57 | gap 5 | name >=46 | NODE ]
+     At the panel's usual width the band is the same 88 units it was when it held
+     a 10-glyph consensus string, so nothing in a wide row moves. It has to shrink
+     though: the columns sit at 33%/67%, so the run from the gutter to the node is
+     only ~70 units on a phone, and a fixed 88 put the band straight through the
+     name — visible as text on text long before there was a logo to collide with.
+     Below a logo worth drawing the whole band drops and the name takes the room. */
+  const COVW = 26, GAP = 5, NAMEMIN = 46;
+  const bandRoom = 0.33 * span - 15;                  // bandStart .. nameEdge
+  const LOGOW = Math.min(57, bandRoom - COVW - GAP * 2 - NAMEMIN);
+  const showGlyph = rowH >= 12 && LOGOW >= 26;
+  const BAND = COVW + GAP + LOGOW;
+  const logoH = Math.max(7, Math.min(18, rowH - 1.5));  // never taller than its row
   for (const n of rows) {
     const isProt = n.r === 'protein';
     const x = isProt ? XP : XU, y = sy(n.y2), r = nodeRadius(n.n, nmax, 0.92);
@@ -1113,29 +1232,49 @@ MODES.module = function (S) {
     const bandStart = isProt ? innerL + 2 : innerR - 2;
     const dir = isProt ? 1 : -1;
     const nameEdge = isProt ? x - r - 7 : x + r + 7;
-    const nameRoom = Math.max(24, dir * (nameEdge - (bandStart + dir * (showGlyph ? BAND : 0))));
+    /* GAP keeps the name clear of the band. The old estimate of 4.9 units per
+       character is right for lowercase and too generous for the uppercase-heavy
+       UTR names, which used to run into the consensus string; against a drawn
+       logo the same overrun reads as a collision, so both are tightened. */
+    const GAP = 5;
+    const nameRoom = Math.max(24, dir * (nameEdge - (bandStart + dir * (showGlyph ? BAND + GAP : 0))));
     const raw = n.name || n.id;
-    const budget = Math.floor(nameRoom / 4.9);
+    const budget = Math.floor(nameRoom / 5.15);
     const label = raw.length > budget ? raw.slice(0, Math.max(3, budget - 1)) + '…' : raw;
     gNode.appendChild(el('text', { class: 'g-lab', x: nameEdge, y,
       'text-anchor': isProt ? 'end' : 'start' }, label));
     if (!showGlyph) continue;
 
-    const barX = isProt ? bandStart : bandStart - 26;
+    const barX = isProt ? bandStart : bandStart - COVW;
     if (n.cons) {
-      gNode.appendChild(el('rect', { x: barX, y: y - 2.5, width: 26, height: 5, rx: 2.5,
+      // the coverage bar stays: it is the honesty mark for whatever sits beside it
+      gNode.appendChild(el('rect', { x: barX, y: y - 2.5, width: COVW, height: 5, rx: 2.5,
         style: { fill: 'var(--surface-3)' } }));
       gNode.appendChild(el('rect', { class: regClass(n.r), x: barX, y: y - 2.5,
-        width: Math.max(0.8, 26 * (n.cov || 0)), height: 5, rx: 2.5,
+        width: Math.max(0.8, COVW * (n.cov || 0)), height: 5, rx: 2.5,
         style: { fill: 'var(--rc)' } }));
+    } else {
+      gNode.appendChild(el('rect', { class: 'g-hatch', x: barX, y: y - 3, width: COVW, height: 6,
+        rx: 2, style: { fill: 'none', strokeDasharray: '2 2' } }));
+    }
+    /* The consensus, at three levels of evidence.  A real STREME matrix is drawn
+       as the motif logo it is; the 63 nodes with no matrix fall back to the
+       consensus STRING, and a node with neither says so.  Nothing is synthesised:
+       these clusters were k-means'd on embeddings, not on sequence, so a PWM built
+       here would manufacture an SSSSS/PPPPP artifact this atlas refuses to draw. */
+    const glyphX = bandStart + dir * (COVW + 5);
+    if (n.logo) {
+      const g = miniLogo(n.logo, {
+        region: n.r, h: logoH, colW: 9.5, maxW: LOGOW,
+        x: glyphX, y: y - logoH / 2, align: isProt ? 'start' : 'end'
+      });
+      if (g) gNode.appendChild(g);
+    } else if (n.cons) {
       gNode.appendChild(el('text', {
-        class: 'g-lab-id', x: bandStart + dir * 31, y,
-        'text-anchor': isProt ? 'start' : 'end'
+        class: 'g-lab-id', x: glyphX, y, 'text-anchor': isProt ? 'start' : 'end'
       }, displaySeq(String(n.cons).slice(0, 10), n.r)));
     } else {
-      gNode.appendChild(el('rect', { class: 'g-hatch', x: barX, y: y - 3, width: 26, height: 6,
-        rx: 2, style: { fill: 'none', strokeDasharray: '2 2' } }));
-      gNode.appendChild(el('text', { class: 'g-lab-id', x: bandStart + dir * 31, y,
+      gNode.appendChild(el('text', { class: 'g-lab-id', x: glyphX, y,
         'text-anchor': isProt ? 'start' : 'end', style: { fillOpacity: .75 } }, 'no consensus'));
     }
   }
@@ -1308,7 +1447,11 @@ export function nodeRow(node, opts) {
       el('span', { class: 'gg-name', style: { display: 'block' } }, node.name || node.id),
       el('span.gg-id', node.id + (opts.sub ? ' · ' + opts.sub : ''))
     ]),
-    node.cons ? consensusGlyph(node.cons, node.r, { max: 10 }) : noConsensusMark({ label: '⌀' }),
+    // same three levels of evidence as the canvas band: real matrix -> logo,
+    // matrix-less consensus -> string, neither -> the absent mark
+    node.logo ? miniLogo(node.logo, { region: node.r, h: 26, colW: 11, maxW: 110 })
+      : node.cons ? consensusGlyph(node.cons, node.r, { max: 10 })
+        : noConsensusMark({ label: '⌀' }),
     node.cons ? coverageBar(node.cov, { carriers: node.carriers }) : el('span'),
     el('span', { style: { display: 'flex', gap: 'var(--s3)', alignItems: 'center' } },
       (opts.right || []).concat([sparkline(node.pos, { w: 46, h: 15, region: node.r })]))
@@ -1327,9 +1470,16 @@ export function provenanceNote(net, mode) {
   if (mode === 'module') {
     return 'The frozen part of this panel is the ROW ORDER: it comes from 24 deterministic ' +
       'barycenter sweeps at build time, over this module’s internal edges only, so a cross-module ' +
-      'edge has one endpoint off-panel and is drawn as a labelled stub. The two column positions ' +
-      'are a display choice made here to leave room for the consensus band. Vertical distance ' +
-      'between two rows carries no meaning.';
+      'edge has one endpoint off-panel. It is drawn as a stub in its OWN column’s gutter — a ' +
+      'protein cluster leaves left, a UTR cluster leaves right — never as a line across the panel; ' +
+      'the tally in each gutter names every module those partners live in, and the stub is ' +
+      'coloured by it. The two column positions are a display choice made here to leave room for ' +
+      'the logo band. Each band shows the cluster’s STREME motif as a sequence logo, on its own ' +
+      'information-content axis, next to the coverage bar; the ' +
+      fmt.int((net && net.meta && net.meta.counts && net.meta.counts.nodes_no_logo) || 63) +
+      ' clusters with no STREME motif keep their consensus string or the absent mark, because ' +
+      'these clusters were built from embeddings, not from sequence, and a PWM invented here ' +
+      'would be an artifact. Vertical distance between two rows carries no meaning.';
   }
   if (mode === 'matrix') {
     return 'Row and column order is a DISPLAY ordering computed in your browser at load time ' +

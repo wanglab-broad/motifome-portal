@@ -8,6 +8,9 @@ R3 payload: the gated protein-cluster x UTR-cluster association graph.
   x/y    FROZEN spring layout, networkx seed=7, box 0-1000
   x2/y2  FROZEN per-module bipartite layout (protein column left, UTR right,
          barycenter crossing-minimisation), box 0-1000
+  logo   TRIMMED STREME matrix (top 4 letters/position at 2 dp + exact bits) on
+         the 456 of 519 nodes that have one, so the drill-down can draw a real
+         sequence logo in the node glyph; the other 63 carry no logo key
   meta   asymmetric 6x6 protein-module x UTR-module count matrix, module cards,
          component/degree census, the non-dismissible caveat, empty-state denominators
 
@@ -82,6 +85,11 @@ log("[1] loading")
 
 clusters = pd.read_parquet(CACHE / "clusters.parquet")
 core_meta = json.loads((CACHE / "core_meta.json").read_text())
+
+# the same STREME cache 07_cluster_shards.py reads; the shards keep the full
+# matrix, the network payload gets the trimmed one (section 3b)
+streme = json.loads((CACHE / "streme.json").read_text())
+streme.pop("_meta", None)
 
 pairs = pd.read_csv(P.PAIR_PASSING)
 check("PAIR_PASSING rows", len(pairs), P.N_GATED_EDGES)
@@ -190,6 +198,82 @@ for nid in node_ids:
     names[nid] = (text, tier, source)
     tier_counts[tier] += 1
 log("       name tiers: " + ", ".join(f"t{t}={tier_counts[t]}" for t in sorted(tier_counts)))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3b. node logos — the trimmed STREME matrix the drill-down draws inline
+# ─────────────────────────────────────────────────────────────────────────────
+log("[3b] node logos")
+
+LOGO_TOP_K = 4       # letters kept per position
+LOGO_DECIMALS = 2    # probability precision kept (shipped as an integer percent)
+
+
+def trim_logo(logo: dict) -> dict:
+    """The node-glyph payload: exact per-position information content plus the
+    top LOGO_TOP_K letters at LOGO_DECIMALS decimals.
+
+    WHY TRIMMED.  The drill-down draws these ~10 px tall, where a letter under
+    p=0.02 is sub-pixel: nothing visible is lost and the full matrices cost 3x
+    the bytes.  The cluster shard still serves the complete PWM, so no analysis
+    ever reads the trimmed copy.
+
+    WHY `bits` IS SHIPPED RATHER THAN RECOMPUTED.  Information content needs the
+    WHOLE column, H = -sum p log2 p over all 20 amino acids.  Recomputing it in
+    the browser from a truncated column would understate H and so OVERSTATE the
+    information content of every protein logo.  It is computed here, from the
+    full matrix, and travels with the trimmed one.
+
+    ENCODING.  `top[i]` is a flat [letter_index, pct, letter_index, pct, ...] run
+    in descending probability, where pct is the probability x100 -- exactly the
+    two decimals kept, three characters cheaper per letter than "0.67".  Nesting
+    the pairs and writing floats cost +12 KB gzipped across 456 nodes for no
+    added information.
+    """
+    alphabet = str(logo["alphabet"])
+    K = len(alphabet)
+    maxbits = math.log2(K)
+    bits, top = [], []
+    for row in logo["pwm"]:
+        h = -sum(p * math.log2(p) for p in row if p > 0)
+        bits.append(round(max(0.0, maxbits - h), 2))
+        order = sorted(range(K), key=lambda i: (-row[i], i))[:LOGO_TOP_K]
+        kept = [(i, int(round(100 * float(row[i])))) for i in order]
+        kept = [d for d in kept if d[1] >= 1] or [(order[0], max(1, int(round(100 * row[order[0]]))))]
+        top.append([v for d in kept for v in d])
+    return {"alphabet": alphabet, "width": int(logo["width"]), "bits": bits,
+            "top": top, "nsites": int(logo["nsites"])}
+
+
+node_logo = {nid: trim_logo(streme[nid]) for nid in node_ids if streme.get(nid)}
+n_logo = len(node_logo)
+check("network nodes with a STREME PWM", n_logo, 456)
+check("network nodes with no PWM (they keep the text/absent treatment)",
+      len(node_ids) - n_logo, 63)
+check("logos whose trimmed width != the STREME width",
+      sum(1 for g in node_logo.values() if len(g["top"]) != g["width"]), 0)
+check("logos whose bits row count != the width",
+      sum(1 for g in node_logo.values() if len(g["bits"]) != g["width"]), 0)
+check("logo alphabets that are neither ACGT nor the 20 amino acids",
+      sum(1 for g in node_logo.values() if len(g["alphabet"]) not in (4, 20)), 0)
+alpha_counts = Counter(len(g["alphabet"]) for g in node_logo.values())
+check("nucleotide logos (4-letter alphabet)", alpha_counts[4], 315)
+check("amino-acid logos (20-letter alphabet)", alpha_counts[20], 141)
+# every kept position must still hold at least one letter, and the retained mass
+# must never exceed 1 -- a rounding bug here would inflate a letter's height
+check("logo positions left with no letter", sum(
+    1 for g in node_logo.values() for col in g["top"] if not col), 0)
+check("logo positions holding a malformed index/percent run", sum(
+    1 for g in node_logo.values() for col in g["top"]
+    if len(col) % 2 or len(col) > 2 * LOGO_TOP_K), 0)
+check("logo positions whose retained probability exceeds 102%", sum(
+    1 for g in node_logo.values() for col in g["top"] if sum(col[1::2]) > 102), 0)
+check("logo positions whose letters are not in descending probability", sum(
+    1 for g in node_logo.values() for col in g["top"]
+    if list(col[1::2]) != sorted(col[1::2], reverse=True)), 0)
+logo_widths = sorted(g["width"] for g in node_logo.values())
+log(f"       {n_logo} of {len(node_ids)} nodes carry a logo; "
+    f"width {logo_widths[0]}-{logo_widths[-1]}, median {logo_widths[len(logo_widths) // 2]}; "
+    f"{alpha_counts[4]} nucleotide / {alpha_counts[20]} amino-acid")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. edges
@@ -446,10 +530,13 @@ for nid in node_ids:
         node["cons"] = str(row["consensus"])
         node["cov"] = round(float(row["coverage"]), 4)
         node["carriers"] = int(row["carriers"])
+    if nid in node_logo:
+        node["logo"] = node_logo[nid]
     nodes.append(node)
 
 check("every node carries a 20-bin position histogram",
       sum(1 for n in nodes if len(n["pos"]) == 20), 519)
+check("nodes carrying a trimmed logo", sum(1 for n in nodes if "logo" in n), 456)
 
 payload = {
     "nodes": nodes,
@@ -481,6 +568,28 @@ payload = {
             "component_sizes": comp_sizes,
             "clusters_total": P.N_CLUSTERS,
             "clusters_not_in_network": P.N_CLUSTERS - len(nodes),
+            "nodes_with_logo": n_logo,
+            "nodes_no_logo": len(nodes) - n_logo,
+        },
+        "logo": {
+            "trimmed": True,
+            "top_letters_per_position": LOGO_TOP_K,
+            "decimals": LOGO_DECIMALS,
+            "nodes_with_logo": n_logo,
+            "nodes_no_logo": len(nodes) - n_logo,
+            "note": ("Each node's `logo` is the TRIMMED STREME matrix: the top "
+                     f"{LOGO_TOP_K} letters per position at {LOGO_DECIMALS} decimals. Each "
+                     "position is a flat [letter_index_into_alphabet, probability_x100, ...] "
+                     "run in descending probability. "
+                     "`bits` is that position's information content computed at bake time "
+                     "from the FULL matrix, because recomputing it from a truncated column "
+                     "would overstate the information content of a 20-letter protein "
+                     "alphabet. The drill-down draws these ~10 px tall, where a letter under "
+                     "p=0.02 is sub-pixel. The complete PWM ships in the cluster shard. "
+                     f"The {len(nodes) - n_logo} nodes with no STREME motif carry no `logo` "
+                     "key at all and keep the consensus string / absent treatment: those "
+                     "clusters were k-means'd on embeddings, not on sequence, so a "
+                     "client-side PWM would manufacture SSSSS/PPPPP artifacts."),
         },
         "outside_module_nodes": outside_nodes,
         "degree": {
@@ -518,6 +627,7 @@ payload = {
             "utr_clusters_no_gated_partner": core_meta["clusters"].get("utr_no_gated_partner", 282),
             "utr_clusters_total": 600,
             "nodes_no_consensus": len(nodes) - n_with_cons,
+            "nodes_no_logo": len(nodes) - n_logo,
             "nodes_no_significant_term": sum(1 for n in nodes if n["tier"] >= 3),
             "edges_cluster_level_only": len(edges) - n_cons_edges,
         },
@@ -539,4 +649,5 @@ check("round-trip nodes", len(back["nodes"]), 519)
 check("round-trip edges", len(back["edges"]), P.N_GATED_EDGES)
 check("round-trip cross-module flags", sum(e["x"] for e in back["edges"]), 757)
 check("round-trip consensus flags", sum(e["cons"] for e in back["edges"]), 1430)
+check("round-trip node logos", sum(1 for n in back["nodes"] if n.get("logo")), 456)
 log("[done] 08_network.py")

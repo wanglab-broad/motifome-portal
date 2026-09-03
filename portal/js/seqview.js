@@ -428,8 +428,14 @@ export function createOverview(host, model, st, cb) {
 
   /* ---- draw ------------------------------------------------------------- */
   function draw() {
-    W = Math.max(320, wrap.clientWidth || host.clientWidth || 900);
-    plotW = W - OV.padL - OV.padR;
+    // fitCanvas writes an inline cv.style.width, which beats `.sv canvas
+    // { width: 100% }`. So W must never exceed the box we actually sit in:
+    // a floor wider than the container paints the plot out through the card
+    // edge (a 320 floor overflowed the ~308px card interior at 390px by 12px).
+    // Measure first, fall back to a nominal width only when unmeasurable.
+    const avail = wrap.clientWidth || host.clientWidth || 0;
+    W = avail > 0 ? avail : 900;
+    plotW = Math.max(1, W - OV.padL - OV.padR);
     const T = tokens();
     const ctx = fitCanvas(cv, W, OV.height);
     layer.style.top = '0px';
@@ -950,8 +956,11 @@ export function createDetail(host, model, st, cb) {
   }
 
   function drawTrack(a, b) {
-    const W = Math.max(320, wrap.clientWidth || 900);
-    const plotX = TR.padL, plotW = W - TR.padL - TR.padR;
+    // Same rule as the overview: the track canvas is given an inline width,
+    // so it must track the container instead of holding a floor above it.
+    const avail = wrap.clientWidth || 0;
+    const W = avail > 0 ? avail : 900;
+    const plotX = TR.padL, plotW = Math.max(1, W - TR.padL - TR.padR);
     const n = b - a + 1;
     const x = p => plotX + ((p - a) / n) * plotW;
     const H = TR.hRuler + TR.hNt + TR.gap + TR.hSpans + TR.hFrame + TR.gap +
