@@ -587,8 +587,16 @@ export function noLogoMark(clusterId) {
 export function matrixSVG(matrix, opts) {
   opts = opts || {};
   const N = matrix.length;
-  const cell = opts.cell || 26, lab = 20, top = 22;
-  const w = lab + N * cell + 2, h = top + N * cell + 14;
+  /* Layout bands, left to right and top to bottom:
+       gut  a rotated "protein module" label running alongside the rows
+       lab  the row swatch + M1..M6 labels
+       top  a caption band for "UTR module →", then the column swatch + M labels
+     The caption used to sit at y=8 on the SAME line as the column labels, and
+     "prot ↓" started at x=0 while "UTR module →" started at x=lab=20 — far less
+     than the 30px "prot ↓" actually occupies. Both collisions were visible. */
+  const cell = opts.cell || 26, gut = 14, lab = 20, cap = 13, top = cap + 20;
+  const left = gut + lab;
+  const w = left + N * cell + 2, h = top + N * cell + 14;
   let max = 0, total = 0;
   for (const row of matrix) for (const v of row) { if (v > max) max = v; total += v; }
 
@@ -597,15 +605,21 @@ export function matrixSVG(matrix, opts) {
     'aria-label': 'directional 6 by 6 matrix, rows are protein modules, columns are UTR modules'
   });
 
-  svg.appendChild(el('text', { class: 'g-mx-corner', x: 0, y: 8 }, 'prot ↓'));
-  svg.appendChild(el('text', { class: 'g-mx-corner', x: lab, y: 8 }, 'UTR module →'));
+  // column caption, on its own band directly above the column headers
+  svg.appendChild(el('text', { class: 'g-mx-corner', x: left, y: cap - 4 }, 'UTR module →'));
+  // row caption, rotated to run alongside the rows it names (no arrow: rotating a
+  // glyph would point it the wrong way, and the rows read top-to-bottom anyway)
+  svg.appendChild(el('text', {
+    class: 'g-mx-corner', 'text-anchor': 'middle',
+    transform: 'translate(8,' + (top + N * cell / 2) + ') rotate(-90)'
+  }, 'protein module'));
 
   for (let c = 0; c < N; c++) {
     const g = el('g', { class: 'g-mx-head ' + modClass(c + 1), role: 'button', tabindex: '0',
       'aria-label': 'focus UTR module M' + (c + 1) });
-    g.appendChild(el('rect', { x: lab + c * cell, y: top - 8, width: cell, height: 7,
+    g.appendChild(el('rect', { x: left + c * cell, y: top - 8, width: cell, height: 7,
       style: { fill: 'var(--mc)' }, rx: 1.5 }));
-    g.appendChild(el('text', { class: 'g-mx-axis', x: lab + c * cell + cell / 2, y: top - 10,
+    g.appendChild(el('text', { class: 'g-mx-axis', x: left + c * cell + cell / 2, y: top - 10,
       'text-anchor': 'middle' }, 'M' + (c + 1)));
     if (opts.onModule) {
       g.addEventListener('click', () => opts.onModule(c + 1));
@@ -618,9 +632,9 @@ export function matrixSVG(matrix, opts) {
   for (let r = 0; r < N; r++) {
     const g = el('g', { class: 'g-mx-head ' + modClass(r + 1), role: 'button', tabindex: '0',
       'aria-label': 'focus protein module M' + (r + 1) });
-    g.appendChild(el('rect', { x: 0, y: top + r * cell + 3, width: 6, height: cell - 6,
+    g.appendChild(el('rect', { x: gut, y: top + r * cell + 3, width: 6, height: cell - 6,
       style: { fill: 'var(--mc)' }, rx: 1.5 }));
-    g.appendChild(el('text', { class: 'g-mx-axis', x: 9, y: top + r * cell + cell / 2 + 3 }, 'M' + (r + 1)));
+    g.appendChild(el('text', { class: 'g-mx-axis', x: gut + 9, y: top + r * cell + cell / 2 + 3 }, 'M' + (r + 1)));
     if (opts.onModule) {
       g.addEventListener('click', () => opts.onModule(r + 1));
       g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ')
@@ -632,7 +646,7 @@ export function matrixSVG(matrix, opts) {
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       const v = matrix[r][c];
-      const x = lab + c * cell, y = top + r * cell;
+      const x = left + c * cell, y = top + r * cell;
       const t = max ? Math.sqrt(v / max) : 0;
       const active = opts.pair && opts.pair[0] === r + 1 && opts.pair[1] === c + 1;
       const g = el('g', {
