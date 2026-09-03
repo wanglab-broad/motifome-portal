@@ -67,11 +67,18 @@ const CSS = `
   --lg-aa-pol:#0e8b8b; --lg-aa-cys:#b8860b; --lg-aa-gly:#8a6d3b; --lg-aa-pro:#b5528a;
   --lg-other:#78848f;
 }
-:root:not([data-theme="light"]) {
-  --lg-nt-a:#5cc98d; --lg-nt-c:#6aaee8; --lg-nt-g:#e6b13d; --lg-nt-t:#ef7f6b;
-  --lg-aa-hyd:#5cc196; --lg-aa-aro:#b18ce8; --lg-aa-pos:#6aaee8; --lg-aa-neg:#ef7f6b;
-  --lg-aa-pol:#4fc7c7; --lg-aa-cys:#e0b352; --lg-aa-gly:#c3a377; --lg-aa-pro:#e58ac2;
-  --lg-other:#8b98a3;
+/* The @media wrapper is load-bearing. Without it, ':root:not([data-theme="light"])'
+   matches the DEFAULT state too (system theme sets no attribute at all), so the
+   dark glyph palette painted itself onto the light background — #5cc98d on
+   #f7f9fb, 2.1:1. Dark must be guarded by the media query here AND repeated
+   under [data-theme="dark"] below so the explicit toggle wins in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --lg-nt-a:#5cc98d; --lg-nt-c:#6aaee8; --lg-nt-g:#e6b13d; --lg-nt-t:#ef7f6b;
+    --lg-aa-hyd:#5cc196; --lg-aa-aro:#b18ce8; --lg-aa-pos:#6aaee8; --lg-aa-neg:#ef7f6b;
+    --lg-aa-pol:#4fc7c7; --lg-aa-cys:#e0b352; --lg-aa-gly:#c3a377; --lg-aa-pro:#e58ac2;
+    --lg-other:#8b98a3;
+  }
 }
 :root[data-theme="dark"] {
   --lg-nt-a:#5cc98d; --lg-nt-c:#6aaee8; --lg-nt-g:#e6b13d; --lg-nt-t:#ef7f6b;

@@ -43,7 +43,12 @@
   --line-strong: #c2ccd8;
   --ink:         #0f1720;
   --ink-2:       #4b5763;
-  --ink-3:       #78848f;
+  /* --ink-3 carries the eyebrows, dim figures and — critically — the printed
+     denominators in every empty state. At the previous #78848f it measured
+     3.6:1 on --bg and 3.5:1 on --surface-2: below AA for the 11–12.5px sizes it
+     is actually used at, and it accounted for ~85% of every route's contrast
+     failures. #5f6b77 clears 5.1:1 on --bg and stays clearly below --ink-2. */
+  --ink-3:       #5f6b77;
   --ink-inv:     #ffffff;
 
   /* ---- accent (deliberately the RNA blue: one hue for interaction) ------ */
@@ -65,6 +70,9 @@
   --rna-soft:    #e3eef7;
   --protein:     #D55E00;
   --protein-soft:#fceade;
+  /* text-on-soft variants: the hue itself is too light for 11px labels here */
+  --rna-ink:     #005e93;
+  --protein-ink: #a04600;
 
   /* ---- the six modules (Okabe–Ito) -------------------------------------- */
   --mod-0: #9AA5B1;   /* unassigned */
@@ -75,8 +83,12 @@
   --mod-5: #0072B2;
   --mod-6: #D55E00;
   /* readable ink for a chip filled with the module colour */
+  /* M3 (#009E73) and M6 (#D55E00) are mid-luminance: white on them measures
+     3.4:1 and 3.9:1, below AA at the 11px a chip uses. Dark ink on the same
+     swatch measures 4.9:1 and 4.6:1 — which is already what the dark palette
+     below picks for M3, whose colour does not change between themes. */
   --mod-0-ink: #1b2733; --mod-1-ink: #2a1c00; --mod-2-ink: #06263a;
-  --mod-3-ink: #ffffff; --mod-4-ink: #33300a; --mod-5-ink: #ffffff; --mod-6-ink: #ffffff;
+  --mod-3-ink: #04211a; --mod-4-ink: #33300a; --mod-5-ink: #ffffff; --mod-6-ink: #2a1206;
 
   /* ---- elevation -------------------------------------------------------- */
   --shadow-1: 0 1px 2px rgba(15,23,32,.06), 0 1px 1px rgba(15,23,32,.04);
@@ -97,7 +109,9 @@
     --line-strong: #3b4a59;
     --ink:         #e8eef4;
     --ink-2:       #a7b4c1;
-    --ink-3:       #78868f;
+    /* #78868f cleared AA on --bg but only 4.3:1 on --surface-2 and 3.8:1 on
+       --surface-3, where dim labels and denominators actually sit. */
+    --ink-3:       #8a97a1;
     --ink-inv:     #0c1116;
 
     --accent:      #4aa9e0;
@@ -116,6 +130,9 @@
     --rna-soft:    #12283a;
     --protein:     #f08343;
     --protein-soft:#33190c;
+    /* on the dark soft grounds the hue itself already clears AA (5.7:1 / 6.1:1) */
+    --rna-ink:     #4aa9e0;
+    --protein-ink: #f08343;
 
     --mod-0: #7c8896;
     --mod-1: #E69F00; --mod-2: #56B4E9; --mod-3: #009E73;
@@ -141,7 +158,7 @@
   --line-strong: #3b4a59;
   --ink:         #e8eef4;
   --ink-2:       #a7b4c1;
-  --ink-3:       #78868f;
+  --ink-3:       #8a97a1;
   --ink-inv:     #0c1116;
 
   --accent:      #4aa9e0;
@@ -160,6 +177,8 @@
   --rna-soft:    #12283a;
   --protein:     #f08343;
   --protein-soft:#33190c;
+  --rna-ink:     #4aa9e0;
+  --protein-ink: #f08343;
 
   --mod-0: #7c8896;
   --mod-1: #E69F00; --mod-2: #56B4E9; --mod-3: #009E73;
@@ -279,12 +298,14 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--s6) 0; }
 
 .omni-trigger {
   display: inline-flex; align-items: center; gap: var(--s2);
-  min-width: 216px; height: 30px; padding: 0 var(--s2) 0 var(--s3);
+  min-width: 360px; height: 40px; padding: 0 var(--s3) 0 var(--s4);
   background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--r-md); color: var(--ink-3);
   font-size: var(--fs-sm); cursor: pointer; text-align: left;
 }
+.omni-trigger { font-size: var(--fs-md); }
 .omni-trigger:hover { border-color: var(--line-strong); color: var(--ink-2); }
+@media (max-width: 900px) { .omni-trigger { min-width: 200px; } }
 .omni-trigger .kbd-hint { margin-left: auto; }
 .icon-btn {
   width: 30px; height: 30px; display: inline-grid; place-items: center;
@@ -366,11 +387,18 @@ a.chip:hover { filter: brightness(.94); }
 .chip-mod.quiet { background: transparent; color: var(--ink-2); border-color: var(--line-strong); }
 .chip-mod.quiet .chip-dot { background: var(--mod-c); }
 
-/* region badges: RNA blue / protein vermillion */
-.badge-region { background: var(--reg-soft); color: var(--reg-c);
+/* region badges: RNA blue / protein vermillion.
+   The LABEL uses --reg-ink, a darkened variant, because the pure modality hue on
+   its own soft ground measures 4.3:1 (RNA) and 3.3:1 (protein) at the 11px this
+   badge renders at. The dot and border keep the true hue, so the modality colour
+   is unchanged everywhere it is a mark rather than 11px text. */
+.badge-region { background: var(--reg-soft); color: var(--reg-ink);
                 border-color: color-mix(in srgb, var(--reg-c) 30%, transparent); }
-.reg-utr5, .reg-utr3, .reg-rna, .reg-utr { --reg-c: var(--rna); --reg-soft: var(--rna-soft); }
-.reg-protein, .reg-prot { --reg-c: var(--protein); --reg-soft: var(--protein-soft); }
+.badge-region .chip-dot { background: var(--reg-c); }
+.reg-utr5, .reg-utr3, .reg-rna, .reg-utr { --reg-c: var(--rna); --reg-soft: var(--rna-soft);
+                                           --reg-ink: var(--rna-ink); }
+.reg-protein, .reg-prot { --reg-c: var(--protein); --reg-soft: var(--protein-soft);
+                          --reg-ink: var(--protein-ink); }
 
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -409,8 +437,12 @@ a.chip:hover { filter: brightness(.94); }
 }
 .btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--ink-3); }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+/* --ink-inv, not #fff: the dark palette's accent is a LIGHT blue (#4aa9e0), so a
+   hardcoded white label measured 2.6:1 there. --ink-inv is #fff in light and
+   #0c1116 in dark, which keeps the filled button legible in both. */
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink-inv); }
+.btn-primary:hover { background: var(--accent-ink); border-color: var(--accent-ink);
+                     color: var(--ink-inv); }
 .btn-ghost { border-color: transparent; background: transparent; }
 .btn-ghost:hover { border-color: var(--line); }
 .btn-sm { height: 24px; font-size: var(--fs-xs); padding: 0 8px; }
@@ -489,15 +521,15 @@ table.data td.num, table.data th.num { text-align: right; }
   padding: 12vh var(--s4) var(--s4);
 }
 .omni {
-  width: min(640px, 100%); background: var(--surface); border: 1px solid var(--line-strong);
+  width: min(760px, 100%); background: var(--surface); border: 1px solid var(--line-strong);
   border-radius: var(--r-lg); box-shadow: var(--shadow-3); overflow: hidden;
   display: flex; flex-direction: column; max-height: 68vh;
 }
-.omni-field { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4);
+.omni-field { display: flex; align-items: center; gap: var(--s3); padding: var(--s4) var(--s5);
               border-bottom: 1px solid var(--line); }
 .omni-field input {
   flex: 1 1 auto; border: 0; outline: none; background: transparent; color: var(--ink);
-  font: var(--fs-md)/1.4 var(--font-sans);
+  font: var(--fs-lg)/1.4 var(--font-sans);
 }
 .omni-field input::placeholder { color: var(--ink-3); }
 .omni-results { overflow-y: auto; padding: var(--s2); }

@@ -37,8 +37,6 @@ const CSS = `
 @media (max-width: 1080px) { .br-facets { position: static; max-height: none; overflow: visible; } }
 .br-sum { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap;
           margin-bottom: var(--s3); }
-.br-sum .big { font-family: var(--font-mono); font-size: var(--fs-xl); color: var(--ink);
-               font-variant-numeric: tabular-nums; }
 .br-name { color: var(--ink); }
 .br-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-3); }
 .br-row-link { text-decoration: none; }
@@ -197,12 +195,8 @@ export async function render(container, params) {
 
   wrap.appendChild(el('header', { style: { marginBottom: 'var(--s5)' } }, [
     el('p.eyebrow', 'Browse'),
-    el('h1', { style: { margin: '0 0 var(--s2)', fontSize: 'var(--fs-2xl)' } },
-      'All 900 motif clusters'),
-    el('p.lede',
-      '300 protein, 500 3′UTR and 100 5′UTR clusters, built by k-means over MIRTO embeddings. ' +
-      'Every facet count below is recomputed against the other active filters, so an empty ' +
-      'combination announces itself before you pick it.')
+    el('h1', { style: { margin: '0', fontSize: 'var(--fs-2xl)' } },
+      'Motif clusters')
   ]));
 
   if (!ix) {
@@ -210,7 +204,7 @@ export async function render(container, params) {
       mark: '◻', title: 'The cluster index has not been built',
       message: 'This page reads a single 900-row index derived from the cluster shards. ' +
         'Build it with:  python code/build/11_cluster_index.py --verify-gate',
-      denominator: 'expects portal/js/cluster-index.js (900 rows)',
+      denominator: 'expects portal/data/cluster_index.json (900 rows)',
       action: el('a.btn', { href: router.link('/network') }, 'The network view still works')
     }));
     return;
@@ -340,13 +334,8 @@ function toggleFacet(F, v, on) {
 function paintSummary(f, shown) {
   const s = S.summary;
   clear(s);
-  const strict = shown.reduce((a, r) => a + (r.npass > 0 ? 1 : 0), 0);
-  const logos = shown.reduce((a, r) => a + (r.logo ? 1 : 0), 0);
-  s.appendChild(el('span.big', fmt.int(shown.length)));
-  s.appendChild(el('span.r2-note', [
-    'of ', el('b', '900'), ' clusters · ', el('b', fmt.int(logos)), ' with a logo · ',
-    el('b', fmt.int(strict)), ' with a strict partner'
-  ]));
+  // live filter readout — this is a control, it moves with the facets
+  s.appendChild(el('span.r2-note', ['Showing ', el('b', fmt.int(shown.length)), ' clusters']));
   s.appendChild(el('span', { style: { marginLeft: 'auto' } }, el('div.row', [
     f.brush ? el('button.btn.btn-sm', { type: 'button',
       on: { click: () => router.setQuery({ bx: null }) } }, 'Clear brush') : null,

@@ -136,8 +136,14 @@ export async function render(container, params) {
 
   const tableHost = el('div');
   const couplingHost = el('div');
-  const leftCol = el('div', { style: { display: 'grid', gap: 'var(--s5)', minWidth: '0' } },
-    [tableHost, couplingHost]);
+  // gridTemplateColumns is load-bearing: a single implicit `auto` track is sized
+  // to its items' max-content, so the motif table's max-content width (~920px)
+  // widened this column past the viewport at <=430px and scrolled the page body.
+  // minmax(0, 1fr) clamps the track and lets .table-scroll do its job.
+  const leftCol = el('div', {
+    style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)',
+             gap: 'var(--s5)', minWidth: '0' }
+  }, [tableHost, couplingHost]);
   const inspectHost = el('div.gv-inspect');
   cols.appendChild(leftCol);
   cols.appendChild(inspectHost);
@@ -603,7 +609,6 @@ function couplingPanel(model, st, cb, select) {
 
   if (!rows.length) {
     return ui.card(el('h3', 'Cross-modal pairs in this transcript'), null, [
-      ui.caveatInline(),
       ui.emptyState({
         mark: '⌀',
         title: 'No protein–UTR pair in this transcript passes the gate',
@@ -675,9 +680,6 @@ function couplingPanel(model, st, cb, select) {
       znf_fraction: r.znf == null ? '' : r.znf
     })), null, 'CSV')],
     [
-      ui.caveatInline('Every row is a candidate, unvalidated pair: 2,620 of 166,615 co-occurring ' +
-        'cluster pairs (1.6%) pass the phylogenetic-independence gate. Click a row to light its ' +
-        'arc and every instance of both clusters on the axis.'),
       el('div.table-scroll', { style: { maxHeight: '420px' } }, table),
       el('p.dim', { style: { fontSize: 'var(--fs-xs)', marginTop: 'var(--s3)', marginBottom: 0 } },
         'p and u index the first motif of each cluster in this transcript; a cluster can occur ' +
@@ -777,8 +779,6 @@ function inspector(model, st, select) {
   const partnerBlock = partners.length
     ? el('div.gv-annblock', [
         el('h5', 'Gated partners of ' + m.c + ' (' + partners.length + ')'),
-        ui.caveatInline('Statistical co-occurrence of motif clusters across genes, not a ' +
-          'demonstrated physical interaction.'),
         el('div', partners.slice(0, 8).map(({ r, k }) => {
           const other = model.motifs[r.p] && model.motifs[r.p].c === m.c
             ? model.motifs[r.u] : model.motifs[r.p];

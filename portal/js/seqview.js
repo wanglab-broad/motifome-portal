@@ -1169,7 +1169,7 @@ export function createDetail(host, model, st, cb) {
       el('span.sv-key', '60 nt per line · 0-based mRNA coordinates in the gutter'),
       el('span.sv-key', st.alpha === 'dna'
         ? 'DNA alphabet as stored'
-        : "5′/3′ UTR mapped T→U; the CDS is shown in the stored DNA alphabet, and protein is never mapped (U there is selenocysteine)"),
+        : "mRNA shown as RNA (T→U across 5′UTR, CDS and 3′UTR); the protein row is never mapped (U there is selenocysteine)"),
       el('span.sv-key', 'amino acids sit under their codon; ✱ is the stop codon')
     ]));
   }
@@ -1322,8 +1322,8 @@ export function createDetail(host, model, st, cb) {
    ============================================================================= */
 
 /** The mRNA substring [a,b] inclusive, in the display alphabet.
- *  T->U is applied to UTR positions only. The CDS keeps the stored alphabet and
- *  the protein sequence is never touched (U there is selenocysteine). */
+ *  T->U is applied to every nucleotide region (5'UTR, CDS, 3'UTR) — they are all
+ *  mRNA. The protein sequence is never touched (U there is selenocysteine). */
 export function sliceDisplay(model, a, b, st) {
   const raw = model.mseq.slice(a, b + 1);
   if (st && st.alpha === 'dna') return raw;
@@ -1334,7 +1334,7 @@ export function sliceDisplay(model, a, b, st) {
     let j = i;
     while (j <= b && model.regionAt(j) === r) j++;
     const chunk = model.mseq.slice(i, j);
-    out += (r === 'cds') ? chunk : displaySeq(chunk, r);
+    out += displaySeq(chunk, r);
     i = j;
   }
   return out;

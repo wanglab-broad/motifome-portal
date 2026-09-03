@@ -58,9 +58,10 @@ const moduleCache  = new LRU(8);
 const inflight     = new Map();       // url -> Promise (dedupes concurrent requests)
 const errors       = [];              // {url, status, message, at}
 
-let manifestPromise = null;
-let networkPromise  = null;
-let searchPromise   = null;
+let manifestPromise     = null;
+let networkPromise      = null;
+let searchPromise       = null;
+let clusterIndexPromise = null;
 
 /* ---------- the single fetch primitive ------------------------------------ */
 
@@ -179,6 +180,21 @@ export function getNetwork() {
   return networkPromise;
 }
 
+/** The 900-row cluster index (portal/data/cluster_index.json, 11_cluster_index.py).
+ *  One row per cluster including the 381 that never appear in network.json, which
+ *  is why browse and the cluster page need it. Resolves to null on any failure.
+ *  `byId` is attached for O(1) lookups, mirroring getNetwork(). */
+export function getClusterIndex() {
+  if (!clusterIndexPromise) {
+    clusterIndexPromise = getJSON(BASE + 'cluster_index.json').then(ix => {
+      if (!ix || !Array.isArray(ix.rows) || !ix.rows.length) return null;
+      ix.byId = new Map(ix.rows.map(r => [r.id, r]));
+      return ix;
+    });
+  }
+  return clusterIndexPromise;
+}
+
 export async function getModule(n) {
   const m = normalizeModule(n);
   if (!m) return null;
@@ -273,7 +289,7 @@ export async function search(query, opts) {
   }
   for (const r of [['network', 'Module network', '#/network'],
                    ['browse', 'Browse clusters & genes', '#/browse'],
-                   ['about', 'About, data & caveats', '#/about']]) {
+                   ]) {
     if (r[0].startsWith(q.toLowerCase()) && q.length >= 3) {
       push({ kind: 'route', id: r[0], label: r[1], sub: 'page', href: r[2],
              module: null, n: null, score: 500 });
@@ -362,4 +378,5 @@ export function cacheStats() {
 export function clearCaches() {
   geneCache.clear(); clusterCache.clear(); moduleCache.clear();
   manifestPromise = null; networkPromise = null; searchPromise = null;
+  clusterIndexPromise = null;
 }

@@ -102,11 +102,17 @@ export const fmt = {
     if (!Number.isFinite(+n)) return '—';
     return (+n).toFixed(d == null ? 3 : d);
   },
+  /* Switches to exponential whenever fixed notation would ROUND THE VALUE AWAY.
+     The old rule keyed only on |n| < 1e-3, so sci(0.0027, 1) printed "0.0" — an
+     E-value or FDR of 0.0027 rendered as zero, which is a false claim. Two view
+     agents each shipped their own helper (R2.sig, G.pval) to dodge exactly this;
+     this makes the shared formatter safe for whoever reaches for it next. */
   sci(n, d) {
     if (!Number.isFinite(+n)) return '—';
-    const a = Math.abs(+n);
-    if (a !== 0 && (a < 1e-3 || a >= 1e5)) return (+n).toExponential(d == null ? 1 : d);
-    return (+n).toFixed(d == null ? 2 : d);
+    const v = +n, a = Math.abs(v), dp = d == null ? 2 : d;
+    if (a === 0) return '0';
+    if (a < 1e-3 || a >= 1e5 || +v.toFixed(dp) === 0) return v.toExponential(d == null ? 1 : d);
+    return v.toFixed(dp);
   },
   pct(x, d) { return Number.isFinite(+x) ? (100 * +x).toFixed(d == null ? 1 : d) + '%' : '—'; },
   /** "437 of 900" */
@@ -118,7 +124,14 @@ export const fmt = {
 /** T -> U, for utr5 / utr3 display ONLY. Never call this on a protein sequence:
  *  U there is selenocysteine. */
 export function toRNA(s) { return typeof s === 'string' ? s.replace(/T/g, 'U').replace(/t/g, 'u') : s; }
-export function displaySeq(s, region) { return (region === 'utr5' || region === 'utr3') ? toRNA(s) : s; }
+/* T->U applies to every NUCLEOTIDE region: 5'UTR, CDS and 3'UTR are all mRNA.
+   The carve-out is the PROTEIN sequence, where U is selenocysteine and mapping
+   would corrupt a real residue. Mapping the UTRs but not the CDS was the earlier
+   reading of that rule, and it printed a single mRNA line as ...CUCACC|ATGGAT...
+   — U on both flanks, T in the middle — which reads as a data error. */
+export function displaySeq(s, region) {
+  return (region === 'utr5' || region === 'utr3' || region === 'cds') ? toRNA(s) : s;
+}
 export function isRNARegion(r) { return r === 'utr5' || r === 'utr3'; }
 
 export const REGION_LABEL = { utr5: "5′ UTR", utr3: "3′ UTR", protein: 'Protein', cds: 'CDS' };
@@ -170,36 +183,6 @@ export function pill(text, opts) {
    the caveat — non-dismissible by construction: no close control is rendered,
    and nothing in this module can remove it.
    ============================================================================= */
-
-export const CAVEAT_TEXT = {
-  lead: 'Module membership is statistical co-occurrence of motif clusters across genes — ' +
-        'not demonstrated physical interaction.',
-  detail: '2,620 of 166,615 co-occurring pairs (1.6%) pass the phylogenetic-independence gate. ' +
-          'They are candidate, unvalidated pairs, not confirmed interactions.'
-};
-
-/** The full-width strip under the top bar. Rendered by the shell on the routes
- *  that show partners or edges. */
-export function caveatBar() {
-  return el('div.caveat', { role: 'note' }, [
-    el('div.caveat-in', [
-      el('span.caveat-mark', { 'aria-hidden': 'true' }, 'ⓘ'),
-      el('span', [
-        el('b', CAVEAT_TEXT.lead), ' ',
-        el('span', CAVEAT_TEXT.detail), ' ',
-        el('a', { href: '#/about' }, 'Why this gate?')
-      ])
-    ])
-  ]);
-}
-
-/** The same caveat, sized to sit inside a partner / edge panel. */
-export function caveatInline(extra) {
-  return el('div.caveat-inline', { role: 'note' }, [
-    el('span', { 'aria-hidden': 'true' }, 'ⓘ'),
-    el('span', [el('b', CAVEAT_TEXT.lead), ' ', extra || CAVEAT_TEXT.detail])
-  ]);
-}
 
 /* =============================================================================
    empty state — takes a message AND its denominator. A blank panel is a bug.
@@ -492,7 +475,6 @@ export function omnibox() {
       const quick = [
         { label: 'Module network', sub: '519 nodes · 2,620 gated edges', href: '#/network' },
         { label: 'Browse clusters', sub: '900 clusters · 6 modules', href: '#/browse' },
-        { label: 'About & caveats', sub: 'how these numbers were made', href: '#/about' }
       ];
       quick.forEach((r, i) => results.appendChild(row(r, i)));
       items = quick;

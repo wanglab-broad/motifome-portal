@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(SP=/private/tmp/claude-502/-Users-wangyanz-Desktop-Project-sequence-design-manuscript-online-contents/b4cfae8b-4376-4bd7-b8b1-c4142c34d821/scratchpad; P=/Users/wangyanz/Desktop/Project/sequence_design/manuscript/online_contents/portal; mkdir -p $SP/gt && cd $SP/gt && rm -f js data app.css && ln -s $P/js js && ln -s $P/data data && ln -s $P/app.css app.css && ls -la)",
-      "Bash(pkill *)"
+      "Bash(pkill *)",
+      "Bash(awk '{print $2}')"
     ]
   }
 }

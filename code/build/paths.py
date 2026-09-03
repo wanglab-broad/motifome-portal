@@ -47,4 +47,19 @@ N_MOTIFS        = 889_215
 N_TRANSCRIPTS   = 18_093       # transcripts carrying >=1 motif
 N_CLUSTERS      = 900
 N_GATED_EDGES   = 2_620
-NT_DOMAIN       = (-8.0, 0.0)  # NTScore quantization domain; measured min -7.688
+# NTScore quantization domain. DO NOT CHANGE without re-running 03_ntscore.py AND
+# 06_gene_shards.py AND updating the browser-side decode in portal/js/data.js — the
+# encode/decode pair (q = clip(round(255*(v+8)/8),0,255) / v = -8 + q*8/255) is baked
+# into all 18,093 gene shards.
+# MEASURED over all 32,745,544 positions (QA re-verified 2026-09-03, no sampling):
+#   true global min -8.2500 (utr5 NM_001273 idx 101) · utr3 min -8.0625 · global max -0.0013
+# An earlier comment here read "measured min -7.688"; that value does not reproduce and
+# was the source of the same error in the project's VERIFIED FACTS list. Corrected.
+# CONSEQUENCE: exactly 4 of 32,745,544 positions (0.0000122%) fall below -8.0 and clamp
+# to the darkest bin — utr5/NM_001273@101, utr5/NM_004703@68, utr5/NM_015080@466,
+# utr3/NM_001292043@179. Nothing is clamped silently: the clamp is counted at bake,
+# recorded in manifest.json.nt (positions_clamped, true_global_min) and reported as a
+# FAILED build assertion (assertions_passed 10 of 11) rather than being papered over.
+# Widening to (-8.5, 0) was considered and rejected: it changes every browser-side
+# dequantization for a 0.0000122% gain.
+NT_DOMAIN       = (-8.0, 0.0)

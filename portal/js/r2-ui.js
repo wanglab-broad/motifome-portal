@@ -11,6 +11,7 @@
 
 import { el, fmt, moduleChip, regionBadge } from './ui.js';
 import * as router from './router.js';
+import { getClusterIndex as fetchClusterIndex } from './data.js';
 
 /* =============================================================================
    style injection — R2 owns no CSS file, so its classes are injected once
@@ -251,24 +252,14 @@ export function ensureR2Style() { ensureStyle('mirto-r2-style', R2_CSS); }
    module is missing, so the caller renders its designed empty state.
    ============================================================================= */
 
-let indexPromise = null;
-
-export function getClusterIndex() {
-  if (!indexPromise) {
-    indexPromise = import('./cluster-index.js')
-      .then(m => {
-        const ix = m && (m.default || m.index);
-        if (!ix || !Array.isArray(ix.rows) || !ix.rows.length) return null;
-        ix.byId = new Map(ix.rows.map(r => [r.id, r]));
-        return ix;
-      })
-      .catch(err => {
-        console.warn('[r2] cluster index not built: run code/build/11_cluster_index.py', err && err.message);
-        return null;
-      });
-  }
-  return indexPromise;
-}
+/* INTEGRATION NOTE: this used to `import('./cluster-index.js')` — a 379 KB ES
+   module carrying the same bytes as data/cluster_index.json — because data.js
+   had no getter for this payload. data.js now exports getClusterIndex(), so the
+   rule that only data.js fetches holds with ONE copy of the data on disk.
+   js/cluster-index.js is no longer imported by anything; 11_cluster_index.py can
+   stop writing it. This wrapper is kept so R2.getClusterIndex() callers are
+   unchanged, and it still resolves to null (never rejects) on any failure. */
+export function getClusterIndex() { return fetchClusterIndex(); }
 
 /* =============================================================================
    the gate
@@ -361,9 +352,7 @@ export function gateLegend() {
                el('b', 'conc < 0.35'), ', ', el('b', 'NPMI > 0.10'), '.']),
     el('div', ['The tick at 45% of each bar is the threshold. ',
                el('b', 'ZNF share'), ' is a diagnostic, not a gate — no pair that clears the ',
-               'four ever exceeds 0.400. ',
-               el('b', 'npmi_raw'), ' is never shown or sorted on: 25 of its top 30 ',
-               'associations are zinc-finger clade artifacts.'])
+               'four ever exceeds 0.400.'])
   ]);
 }
 

@@ -13,7 +13,6 @@
      #/network/4                network, scoped to module 4
      #/module/4                 module detail
      #/browse                   browse/index    ?kind=cluster&region=utr3&page=2
-     #/about                    colophon
 
    Public API
      register(pattern, handler)      pattern '/gene/:refseq'; handler(container, params)

@@ -110,7 +110,9 @@ const CSS = `
 .nw-enc button{font:inherit;font-size:var(--fs-xs);padding:3px 8px;border-radius:var(--r-full);
   border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);cursor:pointer}
 .nw-enc button:hover{border-color:var(--line-strong);color:var(--ink)}
-.nw-enc button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+/* --ink-inv, not #fff: --accent is a light blue in the dark palette (see app.css) */
+.nw-enc button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);
+  color:var(--ink-inv)}
 .nw-enc button[disabled]{cursor:not-allowed;opacity:1;background:repeating-linear-gradient(135deg,
   var(--surface-2) 0 4px,var(--surface-3) 4px 8px);color:var(--ink-3);text-decoration:line-through;
   border-style:dashed}
@@ -280,8 +282,7 @@ export function regClass(r) { return 'g-r' + (r || 'utr3'); }
 /** Region short label used in glyphs and legends. */
 export const REG = { protein: 'protein', utr5: "5′UTR", utr3: "3′UTR" };
 
-/** The four gate values that may drive edge width. npmi_raw is deliberately
- *  absent — see ENC_REFUSED. */
+/** The four gate values that may drive edge width. */
 export const ENC = {
   sc:   { key: 'sc',   label: 'phylo-corrected score',
           hint: 'NPMI+APC after the phylogenetic-independence correction — the gate statistic',
@@ -297,14 +298,6 @@ export const ENC = {
           fmt: v => fmt.int(v) }
 };
 export const ENC_ORDER = ['sc', 'npmi', 'co', 'cl'];
-
-export const ENC_REFUSED = {
-  key: 'npmi_raw',
-  label: 'npmi_raw',
-  reason: 'npmi_raw regenerates the artifact leaderboard this analysis removed — 25 of its top 30 ' +
-          'associations are ZNF-clade artifacts by the authors’ own verdict column. It is not ' +
-          'offered as an encoding or a sort key anywhere in the atlas.'
-};
 
 /**
  * p-value / FDR formatter. ui.fmt.sci only switches to exponential below 1e-3,

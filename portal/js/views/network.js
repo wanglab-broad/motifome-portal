@@ -17,7 +17,7 @@
 import * as router from '../router.js';
 import * as data from '../data.js';
 import {
-  el, clear, append, fmt, emptyState, skeleton, caveatInline, moduleChip, regionBadge,
+  el, clear, append, fmt, emptyState, skeleton, moduleChip, regionBadge,
   copyLinkButton, csvButton, setTitle, breadcrumb, moduleLabel, DENOMINATORS, toast
 } from '../ui.js';
 import * as G from '../graph.js';
@@ -62,7 +62,6 @@ export async function render(host, params) {
                'has not run, or the site is being opened from the filesystem instead of a server, ' +
                'this is what you see. Everything else in the atlas still works.',
       denominator: 'expected 519 nodes · 2,620 edges · 6 modules',
-      action: el('a.btn', { href: '#/about' }, 'What failed to load')
     }));
     return;
   }
@@ -90,7 +89,19 @@ export async function render(host, params) {
     m: pickModule(asModule ? params.n : (q.m != null ? q.m : params.module)),
     pair: parsePair(q.pair),
     enc: G.ENC[q.enc] ? q.enc : 'sc',
-    minsc: clampNum(q.minsc, scMin, scMax, scMin),
+    // Legibility budget. A module drill-down is bounded by NODES (<=133) but not by
+    // EDGES: M1 alone places 1,273 of them across 106 nodes and the panel fills with
+    // a solid mass no one can read an edge out of. When the reader has not chosen a
+    // threshold themselves, start at the score that leaves EDGE_BUDGET edges and say
+    // so on the canvas — the counts line already prints exactly what is drawn, and
+    // one click on "show all" clears it. Never applied to the full-graph mode, where
+    // the whole point is to see all 2,620 at once.
+    minsc: (q.minsc != null || q.all === '1')
+      ? clampNum(q.minsc, scMin, scMax, scMin)
+      : autoThreshold(net, q, params, scMin, scMax),
+    all: q.all === '1',
+    autoThinned: q.minsc == null && q.all !== '1',
+    edgesInModule: moduleEdgeCount(net, q, params),
     cross: q.cross !== '0',
     sel: typeof q.sel === 'string' ? q.sel : null,
     sort: ['sc', 'npmi', 'co', 'cl', 'name'].indexOf(q.sort) !== -1 ? q.sort : 'sc'
@@ -104,21 +115,7 @@ export async function render(host, params) {
   ].filter(Boolean)));
 
   root.appendChild(el('div.row', { style: { alignItems: 'flex-end', marginBottom: 'var(--s4)' } }, [
-    el('div', [
-      el('p.eyebrow.mono', fmt.int(counts.nodes || net.nodes.length) + ' nodes · ' +
-        fmt.int(counts.edges || net.edges.length) + ' gated edges · ' +
-        fmt.int(counts.cross_module_edges || 0) + ' cross-module (' +
-        (counts.cross_module_pct != null ? counts.cross_module_pct : 28.9) + '%)'),
-      el('h1', { style: { margin: '0 0 6px' } }, 'The module network'),
-      el('p.lede', 'One connected graph of ' + fmt.int(counts.nodes || 519) + ' motif clusters. ' +
-        'Protein clusters on one side, UTR clusters on the other; an edge is a co-occurrence that ' +
-        'survived the phylogenetic-independence gate. ' +
-        fmt.int(counts.cross_module_edges || 757) + ' of them cross a module boundary, so the six ' +
-        'modules are not six separate pictures — they are ' +
-        (counts.components === 4 ? 'one giant component of ' +
-          fmt.int((counts.component_sizes || [513])[0]) + ' nodes plus three isolated dyads.'
-          : 'one graph.'))
-    ]),
+    el('h1', { style: { margin: 0 } }, 'The module network'),
     el('div', { style: { marginLeft: 'auto', display: 'flex', gap: 'var(--s2)' } }, [
       copyLinkButton({ label: 'Copy view' })
     ])
@@ -156,24 +153,7 @@ export async function render(host, params) {
   const matrixHost = el('div.nw-panel-body.tight');
   rail.appendChild(el('section.nw-panel', [
     el('h4', 'protein module × UTR module'),
-    matrixHost,
-    el('div', { style: { padding: '0 var(--s3) var(--s3)', fontSize: 'var(--fs-xs)',
-      color: 'var(--ink-3)', lineHeight: '1.45' } }, [
-      el('b', { style: { color: 'var(--ink-2)' } }, 'Directional. '),
-      'Row = the protein cluster’s module, column = the UTR cluster’s module. ' +
-      'M1→M2 is ' + fmt.int((matrix[0] || [])[1] || 0) + ' edges while M2→M1 is ' +
-      fmt.int((matrix[1] || [])[0] || 0) + ' — a symmetric meta-graph would erase that. ' +
-      ((meta.matrix_axes && meta.matrix_axes.excluded_unassigned_edges)
-        ? 'Excludes ' + meta.matrix_axes.excluded_unassigned_edges + ' edges whose endpoints sit ' +
-          'outside every module.' : ''),
-      el('div', { style: { marginTop: 'var(--s2)' } }, [
-        el('b', { style: { color: 'var(--ink-2)' } },
-          fmt.int((meta.outside_module_nodes || []).length) + ' of ' +
-          fmt.int(net.nodes.length) + ' clusters sit outside every module. '),
-        'They form ' + Math.max(0, (counts.component_sizes || []).length - 1) + ' isolated dyads ' +
-        'and appear only in the full graph — a module drill-down cannot show them.'
-      ])
-    ])
+    matrixHost
   ]));
 
   const modesHost = el('div.nw-panel-body', el('div.nw-modes'));
@@ -238,14 +218,7 @@ export async function render(host, params) {
     encButtons.set(k, b);
     encRow.appendChild(b);
   }
-  encRow.appendChild(el('button', {
-    type: 'button', disabled: true, 'aria-disabled': 'true',
-    title: G.ENC_REFUSED.reason
-  }, G.ENC_REFUSED.label));
   encCtl.appendChild(encRow);
-  encCtl.appendChild(el('div.nw-refuse', [
-    el('b', 'npmi_raw is refused. '), G.ENC_REFUSED.reason
-  ]));
   ctlHost.appendChild(encCtl);
 
   // threshold
@@ -361,6 +334,19 @@ export async function render(host, params) {
       el('span.dim', fmt.int(v.consN) + ' of ' + fmt.int(v.edges.length) +
         ' drawn edges have a consensus-level pair (solid); the rest are cluster-level only (dashed)')
     ]);
+    // An auto-applied threshold must never be mistaken for sparse data.
+    if (S.autoThinned && S.minsc > S.scMin + 1e-9) {
+      append(countsLine, [
+        el('br'),
+        el('span.dim', ['thinned to the strongest edges (score ≥ ' +
+          fmt.num(S.minsc, 2) + ') so the panel stays readable — ',
+          el('button.btn', {
+            type: 'button',
+            style: 'padding:1px 7px;font-size:inherit;line-height:1.3',
+            on: { click: () => setState({ all: true, minsc: scMin }) }
+          }, 'show all ' + fmt.int(S.edgesInModule) + ' edges')])
+      ]);
+    }
     provenance.textContent = G.provenanceNote(net, S.mode);
     drawLegend();
     updateSelClasses();
@@ -471,9 +457,7 @@ export async function render(host, params) {
             title: k === 'name' ? 'alphabetical by partner name' : G.ENC[k].hint,
             on: { click: () => setState({ sort: k === 'sc' ? null : k }) }
           }, lab))
-      ).concat([el('button', { type: 'button', disabled: true,
-        title: G.ENC_REFUSED.reason,
-        style: { textDecoration: 'line-through', opacity: '.55' } }, 'npmi_raw')])),
+      )),
       csvButton('mirto-network-' + S.mode + (anchor ? '-' + anchor.id : '') + '.csv',
         () => rows.map(e => ({
           protein_cluster: e.p, protein_name: (net.byId.get(e.p) || {}).name,
@@ -528,6 +512,9 @@ export async function render(host, params) {
   }
 
   function other(e, anchor) {
+    // with nothing selected there is no far end: the row shows the protein node,
+    // so sorting by name must read the same node the reader sees.
+    if (!anchor) return net.byId.get(e.p);
     return net.byId.get(e.p === anchor.id ? e.u : e.p);
   }
 
@@ -680,11 +667,7 @@ export async function render(host, params) {
           copyLinkButton({ href: router.link(params.path, Object.assign(qOf(), { sel: G.edgeKey(e) })),
                            label: 'Link' }))
       ]),
-      el('h3', { style: { margin: '0 0 var(--s3)' } }, 'Protein cluster × UTR cluster'),
-      caveatInline('This pair is a co-occurrence across transcripts that survived the ' +
-        'phylogenetic-independence gate (' + fmt.int(e.cl) + ' independent clades). It is a ' +
-        'candidate, not a demonstrated interaction: nothing here shows the protein motif binding ' +
-        'the UTR motif.')
+      el('h3', { style: { margin: '0 0 var(--s3)' } }, 'Protein cluster × UTR cluster')
     ]));
 
     const pageP = el('div.nw-page.prot');
@@ -867,6 +850,7 @@ export async function render(host, params) {
       enc: S.enc === 'sc' ? null : S.enc,
       minsc: S.minsc > scMin + 1e-9 ? fmt.num(S.minsc, 2) : null,
       cross: S.cross ? null : '0',
+      all: S.all ? '1' : null,
       sel: S.sel, sort: S.sort === 'sc' ? null : S.sort
     };
   }
@@ -882,6 +866,9 @@ export async function render(host, params) {
     S.pair = Array.isArray(S.pair) ? S.pair : parsePair(S.pair);
     S.sort = ['sc', 'npmi', 'co', 'cl', 'name'].indexOf(S.sort) !== -1 ? S.sort : 'sc';
     S.cross = !!S.cross;
+    S.all = !!S.all;
+    // any explicit threshold choice, in either direction, ends the auto-thinned state
+    if ('minsc' in patch || 'all' in patch) S.autoThinned = false;
     S.sel = typeof S.sel === 'string' && S.sel ? S.sel : null;
     router.setQuery(qOf());
     apply(patch);
@@ -1016,6 +1003,37 @@ const MODES = {
                   '<circle cx="6" cy="12" r="1.1" fill="currentColor" opacity=".6"/></svg>' }
 };
 const MODE_ORDER = ['module', 'full', 'matrix', 'profile'];
+
+/* How many edges a module drill-down may draw before it stops being a picture of
+   anything. Chosen by eye against M1, the worst case at 1,273 edges over 106 nodes. */
+const EDGE_BUDGET = 320;
+
+/** The score at which a module's drill-down falls inside EDGE_BUDGET, or scMin when
+ *  it already does. Only ever applied to module mode; full/matrix modes are untouched. */
+function moduleEdges(net, q, params) {
+  const mode = MODES[q.mode] ? q.mode : 'module';
+  if (mode !== 'module') return null;
+  const m = pickModule(q.m != null ? q.m : (params.n != null ? params.n : params.module));
+  if (!m) return null;
+  const byId = net.byId;
+  return net.edges.filter(e => {
+    const p = byId.get(e.p), u = byId.get(e.u);
+    return (p && p.m === m) || (u && u.m === m);
+  });
+}
+
+function moduleEdgeCount(net, q, params) {
+  const es = moduleEdges(net, q, params);
+  return es ? es.length : 0;
+}
+
+function autoThreshold(net, q, params, scMin, scMax) {
+  const es = moduleEdges(net, q, params);
+  if (!es || es.length <= EDGE_BUDGET) return scMin;
+  const sc = es.map(e => e.sc).sort((a, b) => b - a);
+  // floor to the same 0.01 grid the slider snaps to, so the handle lands on a real stop
+  return Math.max(scMin, Math.floor(sc[EDGE_BUDGET - 1] * 100) / 100);
+}
 
 function pickModule(v) {
   const n = parseInt(String(v == null ? '' : v).replace(/^m/i, ''), 10);
