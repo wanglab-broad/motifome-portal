@@ -994,15 +994,8 @@ const MODES = {
                   'fill="currentColor"/><rect x="7" y="7" width="3" height="3" fill="currentColor"/>' +
                   '<rect x="10" y="4" width="2" height="2" fill="currentColor" opacity=".6"/>' +
                   '<rect x="4" y="10" width="2" height="2" fill="currentColor" opacity=".6"/></svg>' },
-  profile:{ label: 'Positional profile map', sub: 'PCA of the 20-bin histogram — not a UMAP',
-            icon: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' +
-                  '<circle cx="4" cy="10" r="1.4" fill="currentColor"/>' +
-                  '<circle cx="7" cy="6" r="1.4" fill="currentColor"/>' +
-                  '<circle cx="11" cy="8" r="1.4" fill="currentColor"/>' +
-                  '<circle cx="12" cy="4" r="1.1" fill="currentColor" opacity=".6"/>' +
-                  '<circle cx="6" cy="12" r="1.1" fill="currentColor" opacity=".6"/></svg>' }
 };
-const MODE_ORDER = ['module', 'full', 'matrix', 'profile'];
+const MODE_ORDER = ['module', 'full', 'matrix'];
 
 /* How many edges a module drill-down may draw before it stops being a picture of
    anything. Chosen by eye against M1, the worst case at 1,273 edges over 106 nodes. */

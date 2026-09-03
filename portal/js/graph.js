@@ -12,7 +12,6 @@
    No layout is ever recomputed in the browser except:
      · the seriated adjacency ordering (a display ordering, labelled as such)
      · the positional-profile projection (a deterministic PCA of the 20-bin
-       position histogram — it is NOT a UMAP, and it says so on screen)
 
    Rendering is SVG with JS-side hit testing: one pointer listener on the root
    instead of 3,000 per-element listeners, which keeps the DOM at ~3.6k nodes for
@@ -754,42 +753,6 @@ export function matrixSVG(matrix, opts) {
   return svg;
 }
 
-/* =============================================================================
-   6.  deterministic 2-D projection of the 20-bin positional profile.
-       This is NOT a UMAP: no embedding ships in any payload. It is a PCA of the
-       position histogram, computed here, and the view says so in words.
-   ============================================================================= */
-
-export function profileProjection(nodes) {
-  const d = 20, n = nodes.length;
-  if (!n) return [];
-  const mean = new Float64Array(d);
-  const X = nodes.map(nd => {
-    const v = new Float64Array(d);
-    const p = nd.pos || [];
-    for (let i = 0; i < d; i++) v[i] = Number(p[i]) || 0;
-    return v;
-  });
-  for (const v of X) for (let i = 0; i < d; i++) mean[i] += v[i] / n;
-  for (const v of X) for (let i = 0; i < d; i++) v[i] -= mean[i];
-
-  // covariance (20x20)
-  const C = [];
-  for (let i = 0; i < d; i++) C.push(new Float64Array(d));
-  for (const v of X) for (let i = 0; i < d; i++) { const vi = v[i]; for (let j = i; j < d; j++) C[i][j] += vi * v[j]; }
-  for (let i = 0; i < d; i++) for (let j = i; j < d; j++) { C[i][j] /= (n - 1 || 1); C[j][i] = C[i][j]; }
-
-  const e1 = power(C, d, 0);
-  deflate(C, d, e1.vec, e1.val);
-  const e2 = power(C, d, 1);
-
-  return X.map((v, k) => {
-    let a = 0, b = 0;
-    for (let i = 0; i < d; i++) { a += v[i] * e1.vec[i]; b += v[i] * e2.vec[i]; }
-    return { node: nodes[k], x: a, y: b };
-  });
-}
-
 function power(C, d, seedIdx) {
   let v = new Float64Array(d);
   for (let i = 0; i < d; i++) v[i] = Math.cos(0.7 * (i + 1) + seedIdx * 1.3) + 1.05;   // deterministic
@@ -1368,62 +1331,6 @@ function seriate(prot, utr, edges) {
 }
 
 /* =============================================================================
-   7d.  mode: PROFILE — the deterministic positional-profile projection.
-   ============================================================================= */
-
-MODES.profile = function (S) {
-  const { gDeco, gEdge, gNode, W, H, ctx, hitNodes, hitEdges, elByNode, elByEdge } = S;
-  const proj = profileProjection(ctx.nodes);
-  if (!proj.length) return { drawn: 0 };
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of proj) {
-    if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
-    if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
-  }
-  const sx = v => scale(v, x0, x1, PAD + 8, W - PAD - 8);
-  const sy = v => scale(v, y1, y0, PAD + 8, H - PAD - 18);
-  const nmax = ctx.nmax || 1;
-
-  gDeco.appendChild(el('line', { class: 'g-axis', x1: PAD, y1: H - PAD, x2: W - PAD, y2: H - PAD }));
-  gDeco.appendChild(el('line', { class: 'g-axis', x1: PAD, y1: PAD, x2: PAD, y2: H - PAD }));
-  gDeco.appendChild(el('text', { class: 'g-lab dimx', x: W - PAD, y: H - PAD + 12, 'text-anchor': 'end' },
-    'PC1 of the 20-bin position histogram'));
-  gDeco.appendChild(el('text', { class: 'g-lab dimx', x: PAD - 6, y: PAD + 2,
-    transform: 'rotate(-90 ' + (PAD - 6) + ' ' + (PAD + 2) + ')' }, 'PC2'));
-
-  // edges are drawn very faintly: they are not what this projection is about,
-  // but hiding them would make the counts line describe something not on screen
-  const at = new Map(proj.map(p => [p.node.id, p]));
-  for (const e of ctx.edges) {
-    const a = at.get(e.p), b = at.get(e.u);
-    if (!a || !b) continue;
-    const x1 = sx(a.x), y1 = sy(a.y), x2 = sx(b.x), y2 = sy(b.y);
-    const line = el('line', {
-      class: 'g-edge ' + (e.x ? 'cross ' : modClass(ctx.net.byId.get(e.p).m) + ' ') +
-             (e.cons ? '' : 'dashed'),
-      x1, y1, x2, y2,
-      style: { stroke: e.x ? null : 'var(--mc)', strokeWidth: 0.5, strokeOpacity: 0.08 }
-    });
-    gEdge.appendChild(line);
-    elByEdge.set(edgeKey(e), line);
-    hitEdges.push({ x1, y1, x2, y2, id: edgeKey(e) });
-  }
-
-  for (const p of proj) {
-    const n = p.node, x = sx(p.x), y = sy(p.y), r = nodeRadius(n.n, nmax, 0.85);
-    const e = el('path', {
-      class: 'g-node ring ' + modClass(n.m) + ' ' + regClass(n.r) + (n.id === ctx.sel ? ' sel' : ''),
-      d: markPathD(n.r, x, y, r), dataset: { id: n.id, cx: x.toFixed(1), cy: y.toFixed(1) },
-      style: { fill: 'var(--mc)', fillOpacity: .82 }
-    });
-    gNode.appendChild(e);
-    elByNode.set(n.id, e);
-    hitNodes.push({ x, y, r, id: n.id });
-  }
-  return { drawn: proj.length };
-};
-
-/* =============================================================================
    8.  glyph rows for the rails (the sortable strip that tames a degree-62 hub)
    ============================================================================= */
 
@@ -1486,9 +1393,5 @@ export function provenanceNote(net, mode) {
       '(module blocks, then 8 barycenter sweeps). It is deterministic but carries no biological ' +
       'meaning. Only the 2,620 gated pairs are drawn; every blank cell is a pair that did not pass.';
   }
-  return 'This is NOT a UMAP — no embedding ships in any payload, so the atlas will not draw one. ' +
-    'It is a deterministic principal-component projection of each cluster’s 20-bin positional ' +
-    'histogram, computed in your browser. Two clusters land near each other when their motifs sit ' +
-    'at similar relative positions within their region — nothing more. Edges are drawn at very low ' +
-    'contrast because this projection says nothing about them; hover a node to pull its edges out.';
+  return base;
 }
