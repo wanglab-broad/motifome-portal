@@ -38,6 +38,22 @@ import plot_GO_enrichment_map as G          # noqa: E402  (path set above)
 
 OUT = paths.OUT / "go_map.json"
 
+# The figure packs its discs into a 2.6 x 4.5 in PDF slot — aspect 0.578, a tall
+# narrow column. That is right for a manuscript page and wrong above a table: at
+# a ~1100px panel width it rendered nearly 3,000px tall and swamped the browse
+# page. Repack for a landscape web panel instead. solve_layout() reads these as
+# module globals (both MAP_ASPECT and its own FIG_W_IN/FIG_H_IN target), so
+# setting them here retargets the packing without touching the figure script.
+#
+# Disc MEMBERSHIP and labels are unaffected — they come from MCL, which never
+# sees the aspect — so the map still says exactly what Fig 3d/ED 3b says; only
+# the arrangement of the discs on the canvas differs, because the panel is a
+# different shape from the PDF slot.
+WEB_W_IN, WEB_H_IN = 9.0, 4.6          # ~1.96, close to the browse panel's shape
+G.FIG_W_IN, G.FIG_H_IN = WEB_W_IN, WEB_H_IN
+G.FIG_W_MM, G.FIG_H_MM = WEB_W_IN * 25.4, WEB_H_IN * 25.4
+G.MAP_ASPECT = WEB_W_IN / WEB_H_IN
+
 BRANCHES = [
     (None,   "ALL", "All GO branches"),
     ("GOBP", "BP",  "Biological process"),

@@ -38,7 +38,15 @@ function ensureStyles() {
 .gm-tabs button{font:inherit;font-size:var(--fs-xs);padding:3px 10px;border:1px solid var(--line);
   background:var(--surface);color:var(--ink-2);border-radius:var(--r-sm);cursor:pointer}
 .gm-tabs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ink-inv)}
-.gm-canvas{width:100%;height:auto;display:block;overflow:visible;background:var(--surface)}
+/* A hard ceiling on how much page the map may take. width:100% + height:auto
+   would otherwise let a tall layout render ~3,000px high on a wide panel and
+   swamp the table underneath. With the default preserveAspectRatio the SVG
+   scales down to fit and centres itself, so capping the height never distorts
+   it. The bake now also packs the discs into a landscape box, so this cap is a
+   safety net rather than the primary fix. */
+.gm-canvas{width:100%;height:auto;max-height:min(58vh,560px);display:block;
+  overflow:visible;background:var(--surface)}
+@media (max-width:900px){.gm-canvas{max-height:min(52vh,420px)}}
 .gm-disc{fill:var(--surface-2);stroke:var(--line);stroke-width:1}
 .gm-disc.hot{stroke:var(--ink-3);stroke-width:1.6}
 .gm-edge{stroke:var(--line-strong);fill:none}

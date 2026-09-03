@@ -14,7 +14,7 @@ import * as router from './router.js';
 import * as data from './data.js';
 import {
   el, mount, clear, fmt, moduleChip, moduleLabel,
-  setTitle, omnibox, DENOMINATORS
+  setTitle, omnibox
 } from './ui.js';
 
 const STYLE_ID = 'mirto-home-css';
@@ -48,7 +48,6 @@ export async function render(host, params) {
   const manifest = await data.getManifest();
   if (cancelled) return;
 
-  const es = (manifest && manifest.empty_states) || {};
 
   /* --- 1. hero ---------------------------------------------------------- */
   wrap.appendChild(hero());
@@ -56,7 +55,7 @@ export async function render(host, params) {
   /* --- 2. the six modules: the front door ------------------------------- */
   const modSection = el('section.section#modules');
   wrap.appendChild(modSection);
-  const cardHosts = mountModuleSection(modSection, es);
+  const cardHosts = mountModuleSection(modSection);
 
   if (!manifest) wrap.insertBefore(notBakedBanner(), wrap.firstChild.nextSibling);
 
@@ -79,9 +78,6 @@ export async function render(host, params) {
 function hero() {
   const h = el('header.home-hero');
 
-  h.appendChild(el('p.eyebrow.mono',
-    'MIRTO · protein-conditioned masked diffusion over full-length human mRNA'));
-
   h.appendChild(el('h1.home-h1', 'MIRTO Human Motifome'));
 
   h.appendChild(el('div.row.home-cta', [
@@ -102,9 +98,8 @@ function isMac() {
    2. the six module story cards
    ============================================================================= */
 
-function mountModuleSection(section, es) {
+function mountModuleSection(section) {
   section.appendChild(el('header.sec-head', [
-    el('p.eyebrow.mono', 'the front door'),
     el('h2', 'Six modules'),
     el('p.lede',
       'Each module is a bipartite community of protein motif clusters and UTR motif clusters that ' +
@@ -121,13 +116,6 @@ function mountModuleSection(section, es) {
     hosts[n] = host;
     grid.appendChild(host.node);
   }
-
-  section.appendChild(el('p.dim.sec-foot', [
-    fmt.of(es.clusters_no_module != null ? es.clusters_no_module : DENOMINATORS.noModule.k,
-           es.clusters_total != null ? es.clusters_total : DENOMINATORS.noModule.n),
-    ' clusters belong to no module at all. They are not failures — they are clusters whose ' +
-    'associations did not survive the gate, and they keep their own pages.'
-  ]));
 
   return hosts;
 }
@@ -326,7 +314,8 @@ function injectStyle() {
   if (document.getElementById(STYLE_ID)) return;
   const css = `
 .home-hero { padding: var(--s8) 0 var(--s6); }
-.home-h1 { font-size: var(--fs-3xl); line-height: var(--lh-tight); max-width: 17ch; margin: var(--s3) 0 var(--s4); }
+.home-h1 { font-size: clamp(1.75rem, 5.2vw, var(--fs-3xl)); line-height: var(--lh-tight);
+  white-space: nowrap; margin: 0 0 var(--s4); }
 .home-cta { margin-top: var(--s5); }
 /* SCOPED to .home-cta on purpose. Unscoped, this rule is injected after app.css
    and so re-styled the shell's own ⌘K hint in the top bar for the rest of the
@@ -338,7 +327,6 @@ function injectStyle() {
 
 .sec-head { margin-bottom: var(--s5); }
 .sec-head h2 { font-size: var(--fs-2xl); margin: var(--s2) 0 var(--s3); line-height: var(--lh-tight); }
-.sec-foot { font-size: var(--fs-sm); margin-top: var(--s4); max-width: var(--measure); }
 
 /* --- module story cards ------------------------------------------------- */
 .mod-grid { align-items: stretch; grid-template-columns: repeat(3, minmax(0, 1fr)); }
