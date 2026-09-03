@@ -1,0 +1,194 @@
+{
+  "_note": "Build phases for the SCIENTIFIC NARRATIVE ATLAS. Ordered so that every layout decision is made against real measured coverage rather than being retrofitted. Total 47 person-days; phases 0-8 plus P9's narrative minimum are the 22-day publishable subset.",
+
+  "phases": [
+    {
+      "name": "Phase 0 - Decide, ask, and set the invariants (1.5 d)",
+      "deliverable": "A repo skeleton (bake/, app/, data/, tours/, verify/, copy/), a checked-in data/theme.json extracted from _shared/manuscript_style.py, a constants module holding the coordinate rule and the value domains, and three questions in the author's inbox.",
+      "exit_criteria": [
+        "theme.json exists and records: modules M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73 (the MCOL dict that 24_bipartite_pruned_ordered.py:63, 23_bipartite_pruned_by_consensus.py:60, 15_annotated_bipartite_all6_boxed.py:50 and consensus_fig_lib.py:32 all agree on), with an explicit note that this OVERRIDES the CATEGORICAL-cycle variant in motif_umap/make_individual_figures.py and the unimplemented proposal in _shared/COLOR_TABLE.md lines 531-536; regions utr5 #E69F00 / utr3 #A85A00 / cds #009E73 / protein #0072B2; network label colours 5'UTR #0072B2 / 3'UTR #A85A00 / protein black; NT_COLORS A #009E73 C #0072B2 G #E69F00 U #D55E00; the examples_lib aacol scheme; and the deviation note that grey is reserved for M5 so unassigned nodes use a dashed outline instead.",
+        "constants.js and constants.py both export: SLICE = seq[start : end+1] (inclusive both ends), PLDDT_DOMAIN = [0, 1] (NOT 0-100), MOTIF_SCORE_DOMAIN = [-4.83, 0] (always negative), NTSCORE_DOMAIN = [-4, 0], JOIN_KEY = 'refseq_id_without_ver'.",
+        "Three questions sent to the author: (1) the utr3_0027 vs utr3_0227 conflict on the MLXIPL / M2 example - BLOCKING for the M2 story card, the M2 tour and the Fig 4a verify page; (2) include the SOX2 design story (Fig 5/6)? (3) include mouse? A top-level nav slot named 'Design' is reserved and hidden.",
+        "A one-page IA sketch approved: the six question-to-view mappings, and the decision that the landing page leads with the modules and NOT with a search box, with the omnibox as permanent chrome."
+      ]
+    },
+    {
+      "name": "Phase 1 - Bake the corrected master table and the canonical cluster table (4 d)",
+      "deliverable": "bake/01_master.py and bake/02_clusters.py producing L1/motifs_master.parquet (889,215 rows, ID-bearing, region-correct) and L1/clusters.json (900 rows) - the two artifacts every later step reads.",
+      "exit_criteria": [
+        "The two contract assertions run first and pass: r1/s05_full.py proves seq[start:end+1] == motifs for 889,215/889,215 rows in ~0.5 s, and the build refuses to emit if it fails; r1/s18_verify_filter.py reproduces all eight published coverage percentages exactly (rbp 51.358%, mirna 4.698%, interpro 67.758%, elm 0.313%, uniprot 90.201%, mobidb 87.206%, idpo 0.750%, signalp 0.117%).",
+        "MobiDB / IDPO / SignalP are masked to region=='protein', removing 209,959 + 1,825 + 665 = 212,449 spurious annotation rows. The masked table is what everything downstream uses.",
+        "No comma-joined string is ever split. InterPro comes from processed/01.interpro/motif_interpro_annotations.parquet overlapping_interpro_labels (15,216 distinct IPRs); UniProt from a fresh typed join against processed/03.uniprot/uniprot_annotation.parquet with the 0-based-corrected overlap rule (756,192 hits over 231,439 motifs, ~2 min); ELM from raw_annotations/02.elm/elm_instances.tsv; IDPO from processed/05.idpo/motif_idpo_annotations.parquet idpo_ids. The original strings survive only as *_legacy_string and are never rendered.",
+        "L1/clusters.json has 900 rows, each with region, module (null for 387), a three-tier name with its tier recorded, size stats, composition, the 20-bin positional histogram and median_pos, and partner counts at both thresholds. NO other artifact re-derives cluster->module from modules.json.",
+        "The recomputed positional histograms reproduce streme_pos_cache_all6.pkl for all 142 overlapping clusters (spot-checked: utr3_0215 median_pos 0.4441 / n_instances 566; utr5_0090 median_pos 0.791; prot_0135 median_pos 0.483).",
+        "annotation_results/motif_interpro_overlap_summary.csv is explicitly excluded from the build (297,686 rows from an older motif run; joining it on raw_motif_index matches the current motif string in 1 of 297,686 rows)."
+      ]
+    },
+    {
+      "name": "Phase 2 - Fill the STREME gap and build the logo bundle (2.5 d)",
+      "deliverable": "L1/logos.json covering as much of the 900 as STREME can support, each PWM tagged provenance, plus L1/instance_match.parquet giving every instance its best PWM window, bits and carrier tier.",
+      "exit_criteria": [
+        "windows_fasta(), run_streme(), parse_streme(), cons_of() and coverage() are copied VERBATIM from motif_pair_network/16_consensus_repertoire.py so new PWMs are method-identical to the 513 on disk (MAXSEQ 1200, NMOTIFS 12, P_SIG 0.05, COV_BITS 0.5; streme --p <fa> --n background_sequences_{region}.fasta --oc <dir> --nmotifs 12, plus --protein --minw 6 --maxw 15 or --rna --minw 5 --maxw 12).",
+        "The 387 never-run clusters have been attempted. Budget: measured 64.3 s for a protein cluster and 5-10 s for a UTR cluster, ~2.4 CPU-hours single-threaded, ~15 min at WORKERS=10. Expect ~100-150 protein clusters to still return nothing significant (prot_0002 already did).",
+        "THE NUMBER IS RECORDED: how many of 900 clusters end up with a logo. Phase 7 lays out the cluster page against THIS number, not against the pre-refill 466.",
+        "Every logo carries provenance: 'STREME (published)' / 'STREME (portal refill)' / 'derived PFM'. No logo is ever produced by stacking member strings (only 32 of 900 clusters have >=50% of members at the modal length).",
+        "instance_match.parquet reproduces the m4_motif_examples hand-checked numbers: utr5_0096#0 AGCAGA coverage 0.253 / 70 carriers; utr5_0096#2 UCAUC 0.150 / 64; utr3_0215#0 UCUCC 0.511 / 155; of 1,988 M4 member transcripts, 106 literal-and-carrier and 53 tier A."
+      ]
+    },
+    {
+      "name": "Phase 3 - Bake the shipped shards and the search index (3.5 d)",
+      "deliverable": "data/seq/, data/gene/, data/cluster/, data/search_index.json.gz, data/clusters_index.json, data/excluded.json.",
+      "exit_criteria": [
+        "The sequence table is deduplicated on refseq_id_without_ver BEFORE any join (21,667 -> 19,210; verified lossless, 0 of 1,296 duplicate groups differ in utr3_sequence or protein_sequence). Skipping this inflates the join to 20,481 and duplicates motif tracks.",
+        "NTScore arrays are extracted from both h5 caches, verified length-exact against their region sequence, int8-quantised, and written into the sequence shards. The 169.5 MB h5 never ships.",
+        "Measured sizes are met or beaten: sequence shards ~17.74 MB total (p50 850 B, max 2,720 B); gene shards ~46.61 MB (p50 2,369 B, p99 6,251 B, max 11,301 B); cluster shards ~41.98 MB (p50 43,770 B, max 217,326 B); search index 0.157 MB gz.",
+        "Enrichment is de-duplicated on (cluster, source, display) keeping min fdr_cluster before it enters any cluster shard, and prot_0072's top 3 no longer reads 'phase separation (curated)' three times.",
+        "data/excluded.json lists all 1,117 motif-free transcripts with a reason; the 666 that exceed the 7,784 nt model context are labelled as such and TTN / NM_001267550 / 37,239 nt resolves correctly.",
+        "The ACTB fixture passes end to end from the shard alone: 3 5'UTR, 13 3'UTR, 4 protein motifs; all three 5'UTR motifs in utr5_0004; TIAL1 on the 45-nt AU-rich element at [82,126]; prot_0040 'DDAPR' at [23,27] with InterPro Actin family."
+      ]
+    },
+    {
+      "name": "Phase 4 - Bake the R3 graph bundle and freeze the layout (3 d)",
+      "deliverable": "data/graph/{nodes,edges,meta_edges,consensus_pairs}.json, data/graph/edge_genes/, data/umap.bin, manifest.json.",
+      "exit_criteria": [
+        "meta_edges.json is COMPUTED (it exists nowhere on disk) and matches the measured weights: M1-M2 244, M1-M5 192, M2-M3 167, M1-M6 32, M1-M3 30, M2-M5 28, M3-M4 22, M5-M6 15, M3-M6 6, M2-M4 5, M2-M6 5, M3-M5 5, M4-M5 4, M1-M4 1, M4-M6 1 - summing to 757 cross-module edges, with 1,860 intra and 3 unassigned.",
+        "The node layout is frozen from one d3-force run with per-module attractors and a protein-left / UTR-right bias, and module blocks are ordered by node_select.order_modules(). Reloading the page reproduces the layout byte for byte, so deep links are stable. The pair-UMAP is NOT used for node placement (averaging it collapses M1/M2/M5/M6).",
+        "edges.json holds all 2,620 gated edges with their ten statistical fields (89 KB gz); the relaxed 7,210-row slice is a separate lazy file (0.74 MB).",
+        "edge_genes/ holds a precomputed carrier list per displayed edge from the Pc & Uc bitwise AND, and reproduces the three known sets exactly: 13 M3 genes for prot_0122#0 & utr5_0090#0; 15 for prot_0072#0 & utr5_0079#0; 17 histones for prot_0040#0 & utr3_0463#0.",
+        "umap.bin is <= 1.0 MB gzipped (measured 0.994 MB as uint16 xy + uint16 npmi + uint8 module) and joins 180,000/180,000 to protein_utr_FINAL_scores.csv. cca_winner_umap.npy and row_index.csv are COPIED into the snapshot with their source path, mtime and SHA-256 recorded, because they live in a v3 tree nothing else references.",
+        "manifest.json records every input's absolute path, bytes, mtime and SHA-256, plus the snapshot version, the build timestamp and the eight reproduced coverage percentages."
+      ]
+    },
+    {
+      "name": "Phase 5 - App shell and chrome (3 d)",
+      "deliverable": "index.html + the router, data loader with LRU shard cache, theme system, omnibox, caveat strip, breadcrumb/resolution selector, export basket, glossary drawer.",
+      "exit_criteria": [
+        "First paint is <= 334 KB (shell ~150 KB + search index 157 KB + modules.json 2 KB + consensus_meta 18 KB + cluster_term_labels 7 KB) and time-to-interactive is measured, not assumed.",
+        "Every route in the routing table resolves, is deep-linkable, and restores its filter state from the URL.",
+        "The three-state theme works in all three states; every chart reads colours from CSS custom properties, so no chart re-renders on a theme change.",
+        "The omnibox resolves gene symbols, RefSeq, ENSG, ENST and U/T-normalised motif strings entirely client-side, with zero network round-trips per keystroke.",
+        "The caveat strip is present and non-dismissible on #/network, #/pair, #/module and #/cluster, and quotes module_gene_members/README.md verbatim.",
+        "A grep of the codebase finds no occurrence of 'binds' or 'interacts with' in any template. The data-model field is named co_occurrence."
+      ]
+    },
+    {
+      "name": "Phase 6 - R1: the gene / transcript view (6 d)",
+      "deliverable": "V10 complete: three region panels with sequence lanes, NTScore tracks, protein feature tracks, four CLIP lanes, the miRNA lane, the motif table, the module fingerprint, and all three empty states.",
+      "exit_criteria": [
+        "DAY-ONE MEASUREMENT, before any layout is committed: render NM_001351027 (7,784 nt total) and NM_001003665 (381 segments) against the already-built shards at /private/tmp/.../scratchpad/r1/full_shards/ and record paint time and memory. If DOM spans fail, the tracks move to a single canvas layer while the sequence text stays in DOM (risk R-02).",
+        "One span per motif-or-gap segment, never per nucleotide; a single flat lane per region with no interval packing (max stacking depth is exactly 1 across all 53,367 transcript-region groups).",
+        "Every motif span is individually bordered, verified on a transcript containing one of the 9,838 same-cluster abutting pairs - the two motifs must be visually distinguishable.",
+        "UTR panels render RNA (U) by default and the protein panel never does; searching UCUCC finds TCTCC.",
+        "NTScore tracks render for both UTRs from the baked arrays and are length-aligned to the character grid at every wrap width; the protein panel shows pLDDT + InterPro ruler + UniProt features with the asymmetry stated in a caption.",
+        "All three empty states are exercised: a transcript with no 5'UTR motifs (one of 808), a cluster with no module (one of 387), and the TTN search path.",
+        "The R3->R1 handoff works: #/gene/<sym>?highlight=prot_0040,utr5_0004 pulses exactly those spans and scrolls the first into view."
+      ]
+    },
+    {
+      "name": "Phase 7 - R2: cluster pages and faceted browse (5 d)",
+      "deliverable": "V09 in both region variants, V11 with four tabs, the SVG logo renderer, and the partner-tier machinery.",
+      "exit_criteria": [
+        "The SVG logo renderer draws IC-scaled logos from PWM arrays for both alphabets (4-letter ACGU and 20-letter protein) at three sizes, and is validated against a published logo image for at least three clusters.",
+        "Every cluster has a name and none renders as a bare id: 37 curated, 463 enriched, the rest synthesised from consensus + composition + size.",
+        "The 'no significant term' band renders as designed content for a cluster that has none (utr3_0215 has 0 of 77 rows passing; utr5_0090 and utr5_0096 likewise) and shows instance-level frequency instead.",
+        "The partner table defaults to strict (2,620 edges), shows the deliberate empty state for the 282 UTR / 99 protein clusters with no strict partner, and only relaxes behind a labelled toggle to npmi_mip_APC > 0.10 (7,210 edges). npmi_raw is not offered as a sort key anywhere on this page.",
+        "The triple FDR gate is a real control and the counts change when it is unchecked.",
+        "The m4_motif_examples acceptance fixture passes: utr5_0096 and utr3_0215 reproduce their hand-checked coverage and carrier numbers, and the UCUCC / utr3_0238 ambiguity warning fires automatically.",
+        "Every facet in browse shows its count before the click, and the 'no module' (387) / 'no logo' / 'no significant term' facets are present and usable."
+      ]
+    },
+    {
+      "name": "Phase 8 - R3: the three-level network (5 d)",
+      "deliverable": "V04 meta map, V05 cluster graph, V06 bipartite drill-down, V07 edge drawer, V08 node peek.",
+      "exit_criteria": [
+        "The network opens on the 52-node published subset from bipartite_nodes_all6.csv and expands to 513 / 519 without re-laying out, because the coordinates are frozen.",
+        "Cross-module edges are ON by default; turning them off raises a non-dismissible warning naming the 28.9% and the M1<->M5 link.",
+        "The edge drawer puts the four gate bullet charts ABOVE the consensus and the annotations, with all four thresholds printed. Verified on prot_0040 x utr5_0004 (npmi 0.628, 23 clades, concentration 0.09, co 175, ZNF 0.00, score 1.7694).",
+        "The consensus section degrades through its three labelled tiers and NEVER shows an empty panel - checked specifically on a cross-module edge, where no consensus pair exists.",
+        "The carrier list is resolution-aware: switching between cluster and consensus level changes the count and the level is always printed.",
+        "The three isolated dyads (prot_0291 x utr5_0013, prot_0108 x utr3_0355, prot_0058 x utr3_0139) are shown in an 'ungrouped pairs' corner rather than floating unexplained.",
+        "The meta map's fifteen weights match the Phase 4 computation, and clicking M1-M5 opens the 192 edges the manuscript discusses."
+      ]
+    },
+    {
+      "name": "Phase 9 - The narrative front door: Atlas Home and six module stories (4.5 d)",
+      "deliverable": "V01, V03 x6 with their claim blocks and validation bands, and the four validation panels.",
+      "exit_criteria": [
+        "Every number in every module claim sentence is data-bound and hoverable to its source; no number is typed into prose.",
+        "The evidence funnel renders on a log scale WITH the log scaling stated and the linear numbers printed, and each row deep-links to the corresponding filtered view.",
+        "All four validation panels show their non-significant results at full weight: the M5 2x2 shows all seven metrics including the four that are ns for the 'both' group; the APEX dumbbell shows lamina q=0.725 and OMM q=0.551 and says plainly that these do not support the manuscript sentence.",
+        "M4's validation band renders the explicit 'no external validation dataset in this project' state rather than being omitted.",
+        "The GO panel defaults to the trusted subset and reproduces module_leading_terms.csv counts exactly (M1 1,419 / M2 442 / M3 383 / M4 223 / M5 593 / M6 470 of 2,310 / 962 / 926 / 342 / 1,086 / 763), with the report's 'read the specificity, not the count' sentence printed above it.",
+        "M2's story card and claim block are GATED on the author's answer to the utr3_0027 / utr3_0227 question and ship with utr3_0227 plus an erratum note if confirmed."
+      ]
+    },
+    {
+      "name": "Phase 10 - Tours and Verify-a-figure (4 d)",
+      "deliverable": "The declarative tour runner, six shippable tours (the seventh gated on R-01), and the verify index with twelve panel pages.",
+      "exit_criteria": [
+        "The runner is <=200 lines and knows nothing about any specific view: every step is {route, focus, highlight, prose, assertion, action} and dispatches into the target view's own control API.",
+        "Every step URL (#/tour/<id>?s=<n>) is deep-linkable and loads the underlying route first.",
+        "Every 'check it yourself' button performs a REAL interaction, not a narration advance, and the reader can leave mid-tour without losing their place or their filters.",
+        "Every assertion in every tour resolves against the same loaded data the view renders, so a tour cannot state a number the app does not show.",
+        "The Kozak tour runs end to end in under 5 minutes on a cold cache and ends on ACTB's real 5'UTR.",
+        "Each verify page carries one of the four verdict badges per claim with the measured value and its source file, and the two known ⚠ CONFLICT items (the APEX lamina/OMM sentence, and utr3_0027 vs utr3_0227) plus the Fig 4b n=667/460 open item are all rendered as such.",
+        "'Export this comparison' produces a stated-vs-measured CSV with source paths."
+      ]
+    },
+    {
+      "name": "Phase 11 - Evidence, methods, glossary, about-the-data (2 d)",
+      "deliverable": "V13, V14, V16.",
+      "exit_criteria": [
+        "The paralogy page is reachable from the caveat strip in one click from anywhere in the app, and the raw-NPMI leaderboard is the ONLY sortable-by-npmi_raw table in the site.",
+        "The Meff gauge, the deflation triple-bar, the CMH table and the independent-origins comparison all render, each quoting relatedness_report.md or its source file.",
+        "Every caveat is quoted verbatim with its source file and section, never paraphrased.",
+        "The glossary covers all fifteen terms and every dotted term in the app opens it at the right entry.",
+        "The known-gaps register lists every material gap with its measured size and the workaround in use, and the region-mask self-check card shows all eight percentages reproducing exactly.",
+        "The provenance manifest table renders with a ⚠ on cca_winner_umap.npy and row_index.csv."
+      ]
+    },
+    {
+      "name": "Phase 12 - UMAP explorer and the isoform case study (1.5 d)",
+      "deliverable": "V15 and V17.",
+      "exit_criteria": [
+        "180,000 points render on canvas with quadtree hover at interactive frame rates, from the <=1 MB quantised payload, loaded only on that route.",
+        "The caption states that only 11,966 of 180,000 points belong to a module and that these are v3-tree coordinates joined to v4 scores.",
+        "Brushing produces a selection table that can be opened in the network.",
+        "The isoform page renders all three gene pairs from all_utr3_scores.npz with the ELAVL1 site overlay, and carries the explainer stating why isoform comparison is a fixed page rather than a generic feature."
+      ]
+    },
+    {
+      "name": "Phase 13 - QA, accessibility, performance, deploy, deposit (3.5 d)",
+      "deliverable": "A green fixture suite, an a11y pass, a measured performance budget, a deployed site and a Zenodo record.",
+      "exit_criteria": [
+        "All seven acceptance fixtures pass in CI: ACTB, the m4 numbers, prot_0040 x utr5_0004, utr3_0463's 17 histones, the 142-cluster positional histogram reproduction, the TTN empty state, and the eight coverage percentages.",
+        "Performance budget met and recorded: first paint <= 334 KB; gene lookup <= 14 KB worst case; cluster open <= 217 KB worst case; module subgraph expand ~89 KB; the 519-node network interactive within 1 s of its bundle landing.",
+        "Accessibility: every interactive element is keyboard-reachable; motif spans and network nodes are focusable with visible focus; module is never encoded by colour alone (region shape and text labels are always present); prefers-reduced-motion is respected by the hero, the counters and the focus pulse; contrast passes in both themes.",
+        "Every table in every view has a working export, and provenance columns are on by default.",
+        "The repo lives in a LAB OR INSTITUTIONAL GitHub org, not a personal account - the single highest-risk item for long-term availability. Shards are generated in CI, not committed.",
+        "The built tree (~114 MB) is deposited to Zenodo, the concept DOI is in the footer chip and the citation block, and the snapshot version is visible in persistent chrome.",
+        "A README in the repo records the two scope questions still open (SOX2 design story, mouse) and the fact that the schema is species-keyed so mouse can be added by pointing at sequence_annotation_mouse/data/processed/."
+      ]
+    }
+  ],
+
+  "critical_path": "Phase 1 -> Phase 2 -> Phase 3 -> Phase 6 is the spine: nothing about R1 can be designed until the corrected master table exists, and nothing about R2's cluster page should be laid out until Phase 2 has told us how many of the 900 clusters actually end up with a logo. Phase 4 can run in parallel with Phase 3. Phases 9-12 depend on 6-8 being real views, because the tours drive those views rather than re-implementing them.",
+
+  "descope_order_if_time_runs_short": [
+    "V15 pair UMAP explorer (nice; the network already carries the result)",
+    "V17 isoform case study (nice; five genes)",
+    "Bake step P9, the cross-module consensus association (the three-tier edge drawer already covers it)",
+    "VU-C1-13 MobiDB disorder track and VU-C1-12 UniProt feature track (the InterPro ruler alone carries the protein panel)",
+    "V13's CMH and independent-origins panels (the leaderboard and the Meff gauge carry the argument)",
+    "Tours beyond the first two"
+  ],
+
+  "never_descope": [
+    "The four gate bullet charts on every edge - they are the design's answer to the misreading risk",
+    "The three-tier cluster naming - without it 437 pages render as bare ids",
+    "The region mask on MobiDB / IDPO / SignalP - without it the site tells RNA biologists that 3'UTR motifs have intrinsic protein disorder",
+    "The inclusive-slice assertion - without it every highlight in the site is silently shifted",
+    "The persistent caveat strip and the co_occurrence field naming",
+    "The three designed empty states"
+  ]
+}

@@ -1,0 +1,437 @@
+{
+  "name": "MIRTO Atlas - a narrative companion site for the bilingual motifome",
+  "one_liner": "A fully static, story-first companion portal in which the six modules are the front door, guided tours let a reader reproduce a named manuscript claim in under five minutes, a 'Verify a figure' mode puts the published panel next to the live data with the measured numbers, and gene / motif-cluster / network search sit underneath as the raw substrate - all served from precomputed JSON shards with no backend.",
+
+  "design_thesis": {
+    "angle": "SCIENTIFIC NARRATIVE ATLAS",
+    "premise": "The reader arrives from the paper, not from a database. The information architecture is therefore built around the questions in the survey's AUDIENCE findings, not around the tables that happen to exist.",
+    "question_to_view_map": [
+      {"question": "What did you actually find?", "view": "V01 Atlas Home - six module story cards + the 180,000 -> 166,615 -> 2,620 funnel"},
+      {"question": "What does module M<n> mean?", "view": "V03 Module Story page (M1-TF, M2-TF, M3-Secretory, M4-Immune, M5-RNA processing, M6-Translation)"},
+      {"question": "Show me, in five minutes, that this is real.", "view": "V02 Guided Tours (7 tours, each 4-7 steps, each ending in a live control the reader can move)"},
+      {"question": "Does Figure 3e / 4b / 4c actually say that?", "view": "V12 Verify a Figure - published panel beside the live data with a per-claim verdict badge"},
+      {"question": "Is this just paralog-family structure relabelled as biology?", "view": "V13 Why we corrected for paralogy - the raw-NPMI leaderboard with its 25/30 'ZNF clade artifact' verdicts"},
+      {"question": "Does MY gene have anything?", "view": "V10 Gene page (R1) - 5'UTR / 3'UTR / protein sequence with highlighted motifs, NTScore tracks, annotation lanes"},
+      {"question": "What is this motif, and what protein features does it associate with?", "view": "V09 Cluster page (R2) - logo, consensus, enrichment, partner clusters with the four gate values"},
+      {"question": "How do protein modules and RNA modules connect?", "view": "V04/V05/V06 Meta-module map -> full 519-node cluster network -> single-module bipartite drill-down (R3)"},
+      {"question": "How complete is this? What is missing?", "view": "V16 About the data - per-database coverage with denominators, the excluded-transcript list, the known-gaps register"},
+      {"question": "How do I cite / download what I'm looking at?", "view": "V21 Snapshot & citation, plus a per-view export control on every table"}
+    ],
+    "narrative_spine": "Home (six stories) -> Module story -> a specific gated pair inside that module -> the two clusters on its ends -> a carrier gene showing both motifs in its real sequence. Every tour walks that spine in one direction or the other, so the reader always ends on a concrete sequence, never on a summary statistic.",
+    "honesty_as_a_feature": "The survey's strongest asset is that the authors already documented their own artifacts (RAW_top30_annotated.csv verdict column: 25 'ZNF clade artifact', 4 'single-clade / weak', 1 'survives'; Meff 2,342 of 18,068 genes; APEX lamina q=0.725 and OMM q=0.551 non-significant; 4 of 7 M5 kinetics metrics ns for the 'both' group). The atlas promotes all of that to first-class content rather than hiding it, because for the reviewer audience it is the most persuasive material in the project."
+  },
+
+  "stack": {
+    "principle": "Two stages with a hard boundary: a Python 'bake' script owns every absolute path and writes a self-contained relocatable static tree. This is exactly the convention every figure3_4 README already states ('outputs relocatable, external inputs absolute') and the shape of make_modules_html.py, upgraded from pandas.to_html to JSON + JS.",
+    "bake": {
+      "interpreter": "/opt/anaconda3/envs/bio/bin/python",
+      "libraries": ["pyarrow 21.0.0 (present)", "pandas", "numpy", "scipy", "h5py", "logomaker (only for the optional PNG fallback; logos are drawn in SVG at runtime)"],
+      "external_binary": "/Users/wangyanz/software/meme/bin/streme (MEME v5.5.9, verified present and executable) - used once, offline, to fill the 387 never-run clusters",
+      "not_used": "duckdb is absent from all four interpreters on this machine and is NOT required: the survey measured a static per-gene shard at 1.13 ms versus 179 ms for pyarrow filtering and 0.21 MB/gene for even an optimally re-partitioned parquet over HTTP range requests. No query engine ships.",
+      "outputs": "a single directory tree of .json / .json.gz / .bin files + a manifest.json with SHA-256 of every input"
+    },
+    "frontend": {
+      "toolchain": "NONE. The survey established zero package.json anywhere under /Users/wangyanz/Desktop/Project/sequence_design and no npm. The app is hand-authored ES modules loaded with <script type=module>, so the user can edit it with the same tools they already use.",
+      "core": "vanilla ES2022 modules, hash-based router (#/gene/ACTB, #/cluster/utr5_0004, #/module/M6, #/pair/prot_0040~utr5_0004, #/tour/kozak, #/verify/fig3e)",
+      "rendering": "inline SVG for everything under ~2,000 elements; Canvas 2D only for the 180,000-point pair UMAP; plain DOM spans for sequence text",
+      "third_party_pinned": [
+        "d3-force 3.0.0 (cdnjs) - one build-time-and-optional-runtime force layout for the 519-node graph",
+        "d3-quadtree 3.0.1 (cdnjs) - hover hit-testing for the canvas UMAP",
+        "d3-scale 4.0.2 + d3-scale-chromatic 3.0.0 (cdnjs) - only for continuous scales; all categorical colour comes from the manuscript palette"
+      ],
+      "explicitly_rejected": [
+        "Plotly - the user's existing precedent (03.build_annotated_plotly_graph.py) inlines 9.5 MB of plotly.js per page; the whole R3 payload is 1.4 MB, so the library would be 7x the data",
+        "React/Vue/Svelte - would require a build toolchain the user does not have",
+        "DuckDB-WASM - 3-5 s cold start, needs HTTP Range + a re-sorted parquet, and answers a question (arbitrary SQL) that none of R1/R2/R3 asks",
+        "Streamlit/Dash - the framework would own the interaction model and fight the custom sequence viewer and force graph; free tiers sleep, giving 30 s+ cold starts on a link printed in a paper"
+      ]
+    },
+    "styling": {
+      "chrome": "Lift the three-state theme token block verbatim from the top of /Users/wangyanz/Desktop/Project/sequence_design/manuscript/results_code_mapping_index/03.panel_code_index.html (:root, @media(prefers-color-scheme:dark){:root:not([data-theme=\"light\"])}, :root[data-theme=\"dark\"]) - this is the user's own newest house style (GEN-2, Aug 2026).",
+      "type": "Newsreader (serif headings) / Source Sans 3 (body) / JetBrains Mono (sequence + code), as in 03.panel_code_index.html. Sequence text MUST be monospace with tabular figures.",
+      "palette_source": "/Users/wangyanz/Desktop/Project/sequence_design/manuscript/main_figures_code/_shared/manuscript_style.py, extracted once at bake time into data/theme.json with a comment citing lines 33-56.",
+      "module_colours": "M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73 - the MCOL dict that four scripts agree on (24_bipartite_pruned_ordered.py:63, 23_bipartite_pruned_by_consensus.py:60, 15_annotated_bipartite_all6_boxed.py:50, consensus_fig_lib.py:32). The two conflicting variants (motif_umap/make_individual_figures.py CATEGORICAL cycle, and _shared/COLOR_TABLE.md lines 531-536) are explicitly overridden and the override is recorded in theme.json.",
+      "region_colours": "track headers use REGION (utr5 #E69F00, utr3 #A85A00, protein #0072B2, cds #009E73); network node LABELS use the separate Fig 3e channel (5'UTR #0072B2, 3'UTR #A85A00, protein black) exactly as 24_bipartite_pruned_ordered.py lines 69-71 does, with the comment preserved.",
+      "nucleotide_colours": "A #009E73, C #0072B2, G #E69F00, U/T #D55E00, N #A7A7A7 (manuscript_style.NT_COLORS)",
+      "amino_acid_colours": "examples_lib.aacol(): L #C1121F; hydrophobic IVFMAWC #E8862E; polar STNQGYH #2A9D8F; charged DEKR #3557A6; else #7A7F87; gaps #C9CDD2",
+      "multi_motif_highlight": "the --a/--b/--c fg/bg/line accent triad from m4-motif-exemplars.html, which is already dark-mode-safe and was written for exactly this problem"
+    },
+    "hosting": "GitHub Pages under a lab/institutional org (not a personal account), with an immutable Zenodo deposit of the built tree (114 MB, well inside Zenodo's 50 GB record limit) as the citable artifact. Shards are generated in CI from the source parquets rather than committed, because ~36,700 small files make git clone slow."
+  },
+
+  "architecture": {
+    "layers": [
+      {
+        "layer": "L0 - source of truth (never shipped)",
+        "contents": "the 300+ MB of parquet/h5/csv under /Users/wangyanz/Desktop/Project/sequence_design",
+        "rule": "Only bake/*.py may reference these paths. Nothing in the shipped tree contains an absolute path."
+      },
+      {
+        "layer": "L1 - canonical derived tables (bake stage 1)",
+        "contents": "clusters.csv/json (900 rows, THE canonical cluster->region->module->name->consensus lookup the survey says does not exist as a flat file today), edges (2,620 strict + 7,210 relaxed), modules (6), motifs_master_corrected.parquet (ID-bearing, region-masked)",
+        "rule": "Every view reads only from L1 derivatives; no view re-derives cluster->module from modules.json, so the four existing on-disk copies cannot drift."
+      },
+      {
+        "layer": "L2 - shipped static data (bake stage 2)",
+        "contents": "per-gene shards, per-transcript sequence shards, per-cluster shards, the R3 graph bundle, the quantised UMAP binary, the search index, theme.json, manifest.json",
+        "rule": "Everything is content-addressed by a snapshot version string; the app never fetches an unversioned path."
+      },
+      {
+        "layer": "L3 - app shell",
+        "contents": "index.html + ~15 ES modules + one CSS file. Router, data-loader with an LRU shard cache, and a small 'store' holding the current selection.",
+        "rule": "First paint must not exceed the measured 334 KB budget (shell ~150 KB + search index 157 KB + modules.json 2 KB + consensus_meta 18 KB + cluster_term_labels 7 KB)."
+      },
+      {
+        "layer": "L4 - narrative layer (the thing that makes this the Narrative Atlas)",
+        "contents": "tours/*.json - declarative tour scripts; verify/*.json - one file per manuscript panel with its claims, the measured values, and a verdict; copy/*.md - the caveat and methods prose, quoted verbatim from MODULES_REPORT.md, REPORT.md, module_gene_members/README.md and the manuscript Discussion.",
+        "rule": "A tour step is data, not code: {view, route, focus, highlight, prose, assertion}. The tour runner drives the SAME views the free-browsing user gets, never a special narrative-only widget. This is the single most important architectural decision of this angle - it means the tours cannot drift from the app, and every tour step is a deep link the reader can share."
+      }
+    ],
+    "routing": [
+      "#/                      Atlas Home",
+      "#/module/M5             Module story",
+      "#/network               Meta-module map (default) / ?level=clusters / ?level=bipartite&m=3",
+      "#/pair/prot_0072~utr5_0079   Edge detail (deep-linkable)",
+      "#/cluster/utr5_0079     Cluster page (R2)",
+      "#/gene/TRA2B            Gene page (R1); #/gene/TRA2B?tx=NM_004593&region=utr5&pos=112",
+      "#/tour/kozak            Guided tour, step index in ?s=3",
+      "#/verify/fig3e          Verify a figure",
+      "#/evidence/paralogy     Why we corrected for paralogy",
+      "#/browse/clusters?region=utr3&module=none&has_logo=1   Faceted browse",
+      "#/browse/rbp/ELAVL1     RBP facet",
+      "#/about/data            Coverage, gaps, provenance",
+      "#/umap                  Pair UMAP explorer (Fig 3c)"
+    ],
+    "data_loading": {
+      "eager_at_boot": ["theme.json (2 KB)", "manifest.json (12 KB)", "search_index.json.gz (157 KB gz, measured)", "modules.json (1.7 KB gz)", "meta_edges.json (<1 KB)", "clusters_index.json - 900 rows of {cluster, region, module, name, name_tier, n_instances, n_genes, has_logo, n_partners} (~90 KB gz, computed)"],
+      "lazy_per_route": ["gene shard 3.2 KB median / 8.8 KB p99 / 14.0 KB max (measured)", "cluster shard 43.8 KB median / 217 KB max (measured)", "edges.json 89 KB gz (all 2,620, loaded on first /network or /cluster visit)", "logos.json 0.56 MB (loaded on first cluster page)", "umap.bin 0.994 MB (only on /umap)", "per-module GO 55-335 KB (only on module story page)"],
+      "cache": "an in-memory LRU of 40 shards plus the browser HTTP cache; shards are immutable per snapshot so Cache-Control: immutable is safe"
+    },
+    "cross_cutting_invariants": [
+      "COORDINATES: one exported constant. Highlight span = seq.slice(m.s, m.e + 1); length = m.e - m.s + 1. Verified 889,215/889,215 rows. The bake script re-runs the r1/s05_full.py assertion and refuses to emit if it fails.",
+      "ALPHABET: UTR sequences and UTR motif strings are stored DNA (A/C/G/T, zero U). The UI renders RNA (U) for utr5/utr3 and never for protein (where U is selenocysteine). Search normalises U->T before matching. Without this, a reader typing the manuscript's own UCAUC / UCUCC / GCCACC gets zero hits.",
+      "CLUSTER PROVENANCE: cluster always comes from the motif ROW, never from the motif string. 34,110 unique_motif_ids (5.91%) are assigned to more than one cluster; 'CTGGA' alone spans 176 utr3 clusters.",
+      "RESOLUTION: every count in the UI carries a resolution tag (instance / unique_motif / cluster / consensus / module). The same question 'which genes carry this pair' answers 4,348 / 49 / 15 depending on level, and the UI must always say which.",
+      "LANGUAGE: the edge field is named co_occurrence in the data model and every template. No template can emit 'binds' or 'interacts with' because no such field exists.",
+      "REGION MASK: MobiDB / IDPO / SignalP are masked to region=='protein' at bake time (212,449 spurious rows removed). The bake re-runs r1/s18_verify_filter.py and asserts all 8 published coverage percentages reproduce exactly.",
+      "EMPTY STATES: three distinct kinds are designed, not defaulted - no motifs at all (1,117 transcripts, 666 over the 7,784 nt model cap), missing one of three tracks (902 transcripts), no module (9,247 transcripts / 387 clusters)."
+    ]
+  },
+
+  "data_pipeline": {
+    "runtime_estimate": "~35 min end to end on this machine, dominated by the one-off STREME fill (~15 min at WORKERS=10) and the UniProt re-join (~2 min). Re-bakes without the STREME step are ~6 min.",
+    "steps": [
+      {
+        "id": "P0",
+        "name": "assert the coordinate and coverage contracts",
+        "in": ["/private/tmp/.../scratchpad/r1/s05_full.py", "/private/tmp/.../scratchpad/r1/s18_verify_filter.py"],
+        "out": "build log; hard failure on mismatch",
+        "note": "Adopted verbatim as build-time regression tests. s05_full runs in 0.5 s over all 889,215 rows."
+      },
+      {
+        "id": "P1",
+        "name": "rebuild the master motif table, ID-bearing and region-correct",
+        "in": [
+          "/Users/wangyanz/Desktop/Project/sequence_design/data/identified_motifs_with_clusters.0513.parquet (keeps kmeans_label, which table B dropped)",
+          "/Users/wangyanz/Desktop/Project/sequence_design/sequence_annotation/sequence_annotation_human/data/processed/motif_full_annotations.parquet (gene_symbol + 11 annotation columns)",
+          "processed/01.interpro/motif_interpro_annotations.parquet (overlapping_interpro_labels -> real IPR accessions)",
+          "processed/05.idpo/motif_idpo_annotations.parquet (idpo_ids)",
+          "processed/06.mobidb/motif_mobidb_annotations.parquet (Entry = UniProt accession)",
+          "processed/03.uniprot/uniprot_annotation.parquet (1,577,512 typed features; re-join with the 0-based-corrected overlap rule -> 756,192 hits over 231,439 motifs)",
+          "processed/00.eclip/motif_rbp_overlaps.parquet (2,671,559 peak overlaps -> per-motif peak counts, cell lines, score range)",
+          "/Users/wangyanz/Desktop/Project/sequence_design/sequence_annotation/annotation_coverage_stats.json (the `applies` field drives the region mask)"
+        ],
+        "out": "L1/motifs_master.parquet (889,215 rows, ID-bearing, region-masked, comma-joined strings retained only as *_legacy_string and never rendered)",
+        "note": "NEVER comma-split interpro (wrong for 41.34% of annotated protein motifs), uniprot (6.894%) or elm (fragments like 'TRAF2 group (TRAF1' / '2' / '3'). idpo splits on ';'. signalp has exactly 2 values."
+      },
+      {
+        "id": "P2",
+        "name": "build the canonical cluster table",
+        "in": ["L1/motifs_master.parquet", "modules.json", "consensus_meta.csv", "consensus_repertoire.pkl", "cluster_term_enrichment.csv.gz", "cluster_term_labels.csv", "interpro_entry_map.csv", "GRCh37_latest_rna_sequence_pairs_long_transcript.parquet (for relpos)"],
+        "out": "L1/clusters.json - 900 rows: cluster, region, module|null, name, name_tier(curated|enriched|synthesised), n_instances, n_genes, n_unique_motif_ids, length p10/p50/p90, motif_score p10/p50/p90, plddt p10/p50/p90 (protein only), base/aa composition, pos_hist[20], median_pos, consensus[], has_streme_logo, n_partners_strict, n_partners_relaxed",
+        "note": "This is the single artifact the survey says is missing. Every view reads it; nothing re-derives cluster->module."
+      },
+      {
+        "id": "P3",
+        "name": "fill the STREME gap (one-off, offline)",
+        "in": ["/Users/wangyanz/Desktop/Project/sequence_design/manuscript/main_figures_code/figure3_4/motif_pair_network/16_consensus_repertoire.py (windows_fasta/run_streme/parse_streme/cons_of/coverage, verbatim)", "/Users/wangyanz/Desktop/Project/sequence_design/data/background_sequences/background_sequences_{protein,utr3,utr5}.fasta"],
+        "out": "L1/logos.json - PWMs for as many of the 900 clusters as STREME can produce, each tagged provenance='streme_published' | 'streme_refill' | 'derived_pfm'",
+        "cost": "387 never-run clusters; measured 64.3 s/protein cluster and 5-10 s/UTR cluster => ~2.4 CPU-hours single-threaded, ~15 min at WORKERS=10. Expect ~100-150 protein clusters to still return nothing significant (prot_0002 already did).",
+        "note": "Currently 434 of 900 clusters have NO PWM and 229 have neither a PWM nor a significant term. This is the highest-value 15 minutes in the project and must happen BEFORE the cluster page is laid out. Never stack member strings as a fallback: only 32 of 900 clusters have >=50% of members at the modal length."
+      },
+      {
+        "id": "P4",
+        "name": "per-instance PWM match table",
+        "in": ["L1/logos.json", "L1/motifs_master.parquet", "coverage() from 16_consensus_repertoire.py (COV_BITS=0.5, uniform background)"],
+        "out": "L1/instance_match.parquet keyed on raw_motif_index: best window offset + bits + exact flag",
+        "note": "Closes the 'no aligned-members panel' gap and generalises find_m4_examples.py's tier A / carrier / literal classification from M4 to all six modules, so R1 and R3 agree about which genes carry which motif."
+      },
+      {
+        "id": "P5",
+        "name": "sequence + NTScore shards",
+        "in": ["GRCh37_latest_rna_sequence_pairs_long_transcript.parquet (drop_duplicates('refseq_id_without_ver') FIRST - 21,667 -> 19,210, verified lossless)", "/Users/wangyanz/Desktop/Project/sequence_design/data/outputs_utr3_score_0318.h5 (18,585 keys)", "/Users/wangyanz/Desktop/Project/sequence_design/explore_biology/01.protein_localization/analysis/data/h5cache/outputs_utr5_score_0326.h5 (18,093 keys, exact 1:1 with the motif table)"],
+        "out": "data/seq/<refseq>.json.gz (measured 17.74 MB total for the 18,093 usable transcripts; p50 850 B, max 2,720 B) with an int8-quantised NTScore array per UTR region",
+        "note": "Score array length matches the region sequence exactly (verified on 6 transcripts, all exact). SeqScore is just the array mean, so no separate SeqScore table is needed. Quantise score to int8 over [-5, 0] (0.02 log-prob resolution); keep entropy at int8 over [0, 3]."
+      },
+      {
+        "id": "P6",
+        "name": "per-gene motif shards",
+        "in": ["L1/motifs_master.parquet", "L1/instance_match.parquet", "L1/clusters.json", "module_gene_index.csv"],
+        "out": "data/gene/<GENE>.json.gz (measured 46.61 MB total, p50 2,369 B, p99 6,251 B, max 11,301 B; builds in 45 s)",
+        "note": "One file per gene, annotations included. Annotations are 52.4% of payload and could be split out, but at 3.4 KB mean the simpler single-fetch design is right."
+      },
+      {
+        "id": "P7",
+        "name": "per-cluster shards",
+        "in": ["L1/motifs_master.parquet", "L1/clusters.json", "cluster_term_enrichment.csv.gz", "protein_utr_FINAL_scores.csv"],
+        "out": "data/cluster/<cluster>.json.gz (measured 41.98 MB total, p50 43,770 B, max 217,326 B)",
+        "note": "Enrichment must be de-duplicated on (cluster, source, display) keeping min fdr_cluster before ranking - (cluster, display) is duplicated in 17,056 groups and prot_0072's naive top-3 is 'phase separation (curated)' three times."
+      },
+      {
+        "id": "P8",
+        "name": "R3 graph bundle + frozen layout",
+        "in": ["phylo_corrected_candidates.csv (2,620)", "protein_utr_FINAL_scores.csv (filtered to passes_phylo_filter OR npmi_mip_APC>0.1 => 7,210 rows)", "modules.json", "consensus_scope_clusters.csv (513)", "consensus_pair_scores.csv.gz", "consensus_presence.npz", "node_select.py order_modules()"],
+        "out": ["data/graph/nodes.json (519 nodes with frozen x,y)", "data/graph/edges.json (89 KB gz)", "data/graph/meta_edges.json (15 pairs)", "data/graph/consensus_pairs.json (top 3 per covered edge, 703 KB)", "data/graph/edge_genes/<p>~<u>.json (carrier gene lists from the Pc & Uc bitwise AND)"],
+        "note": "There are NO node-level coordinates on disk and averaging the pair-UMAP collapses M1/M2/M5/M6. Run d3-force ONCE at bake time with per-module attractors and a protein-left/UTR-right constraint; ship (x,y). Compute the 6x6 meta adjacency here - it exists nowhere on disk (measured: M1-M2 244, M1-M5 192, M2-M3 167, M1-M6 32, M1-M3 30, M2-M5 28, M3-M4 22, M5-M6 15, M3-M6 6, M2-M4 5, M2-M6 5, M3-M5 5, M4-M5 4, M1-M4 1, M4-M6 1)."
+      },
+      {
+        "id": "P9",
+        "name": "cross-module consensus association (the one genuinely new computation)",
+        "in": ["consensus_presence.npz (Pc 18068x275 bool, Uc 18068x951 bool)", "17_consensus_association.py"],
+        "out": "extends data/graph/consensus_pairs.json to the 757 cross-module edges",
+        "note": "consensus_pair_scores.csv.gz contains ZERO cross-module rows, so 1,190 of 2,620 edges (45%) would otherwise show an empty consensus panel - including the M1<->M5 link the manuscript actually discusses. co_count and NPMI for any consensus pair are a bitwise AND away. If this is descoped, the tiered fallback in VU-C3 covers it."
+      },
+      {
+        "id": "P10",
+        "name": "search index + excluded-transcript register",
+        "in": ["L1/motifs_master.parquet", "GRCh37 sequence parquet", "module_gene_index.csv (to recover symbols for excluded transcripts)"],
+        "out": ["data/search_index.json.gz (17,847 symbols + 18,093 RefSeq + 20,481 ENSG + 20,481 ENST; measured 0.157 MB gz)", "data/excluded.json (1,117 motif-free transcripts with a reason string)"],
+        "note": "GAP: table C has no gene_symbol, so ~1,117 excluded transcripts cannot all be named from local data. module_gene_index.csv recovers some; the rest need a one-off NCBI gene2refseq or mygene lookup (~30 KB JSON). Until then the excluded entry reads by RefSeq id with the length reason, which still beats a silent zero-result."
+      },
+      {
+        "id": "P11",
+        "name": "narrative layer",
+        "in": ["examples_table.csv (22 curated rows)", "m4_motif_examples/README.md", "MODULES_REPORT.md", "REPORT.md", "module_gene_members/README.md", "relatedness_report.md", "PANELS.md", "RAW_top30_annotated.csv", "independent_origins.csv", "cmh_family_stratified_highlight.csv", "ZNF_evidence_deflation_demo.csv", "GO_term_specificity.csv", "m1_m2_rbp_enrichment.csv", "m1_m2_apex_localization.csv", "ribomap_validation.csv", "motif_2x2_kinetics_summary.csv", "tls_nuclear_degradation_M5.csv", "M6_utr5_0004_GCCGCCACC_kozak_genes.csv", "all_utr3_scores.npz + ELAVL1_binding_regions.parquet"],
+        "out": ["tours/*.json (7 tours)", "verify/*.json (one per panel in PANELS.md)", "copy/*.md (caveats, methods, glossary)", "data/validation/*.json"],
+        "note": "All caveat prose is QUOTED, never paraphrased. The bake copies the source sentence and its file+section into the JSON so the UI can show provenance on hover."
+      },
+      {
+        "id": "P12",
+        "name": "UMAP payload",
+        "in": ["/Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v3_0515/07.umap_vis/00.build_embeddings_model_embeddings/results/cca_sweep/cca_winner_umap.npy (180000,2 float32)", ".../results/embeddings/row_index.csv", "protein_utr_FINAL_scores.csv"],
+        "out": "data/umap.bin - uint16 xy + uint16 npmi channel + uint8 module channel (measured 0.994 MB gz total, max quantisation error 0.000234 data units)",
+        "note": "COPY the .npy into the snapshot and record its mtime and SHA-256. It lives in a v3 tree that nothing else in the portal references and could be cleaned up without warning. Never recompute - it would not reproduce the published figure."
+      },
+      {
+        "id": "P13",
+        "name": "manifest + snapshot",
+        "out": "manifest.json: for every input, absolute source path, bytes, mtime, SHA-256; plus snapshot version, build timestamp, and the eight reproduced coverage percentages as a self-test record"
+      }
+    ],
+    "measured_totals": {
+      "full_static_tree_gzipped_MB": 114.17,
+      "breakdown_MB": {"gene_shards": 46.61, "sequence_shards": 17.74, "cluster_shards": 41.98, "r3_layer_full": 7.53, "search_index": 0.157, "app_shell_estimated": 0.15},
+      "lean_variant_MB": 108.07,
+      "first_paint_KB": 334,
+      "per_action_KB": {"gene_lookup_median": 3.2, "gene_lookup_p99": 8.8, "gene_lookup_max": 14.0, "cluster_open_median": 43.8, "cluster_open_max": 217, "module_subgraph_expand": 89}
+    }
+  },
+
+  "tradeoffs": [
+    {
+      "decision": "Fully static shards, no backend, no WASM query engine",
+      "for": "Measured 1.13 ms per gene query vs 179 ms (pyarrow) and 1,368 ms (cold pandas); 0 MB server RAM vs 782 MB for a warm pandas server; $0 hosting; nothing to patch; survives the first author leaving the lab. Removes the unstated-deployment-target unknown entirely.",
+      "against": "114 MB tree and ~36,700 small files make git clone slow (mitigated: generate in CI, or a separate data branch). No arbitrary SQL. A future 'find all motifs matching regex X across all genes' feature would need either a server or a prebuilt inverted index.",
+      "verdict": "Take it. None of R1/R2/R3 needs arbitrary query. Add a FastAPI+DuckDB API later behind the same static frontend if it is ever demanded, rather than replacing the frontend."
+    },
+    {
+      "decision": "Story-first information architecture (six modules on the front page) rather than a search box on the front page",
+      "for": "The stated audience arrives from the paper. The survey's own audience analysis says reviewers arrive with three questions, none of which is 'look up a gene'. A search-first landing page makes the site indistinguishable from oRNAment and buries the actual result.",
+      "against": "A wet-lab reader whose only question is 'does MY gene have anything' has one extra click. Mitigated by putting a persistent omnibox in the top chrome on every page (Cmd-K), so search is never more than a keystroke away.",
+      "verdict": "Take it, but the omnibox is non-negotiable chrome, not a landing-page-only element."
+    },
+    {
+      "decision": "Tours drive the real views via declarative step JSON, rather than being bespoke narrative widgets",
+      "for": "Tours cannot drift from the app. Every tour step is a shareable deep link. Adding a tour costs a JSON file, not code. The 'Verify a figure' mode reuses the same runner.",
+      "against": "Requires every view to accept a focus/highlight parameter and to be idempotently addressable, which is real design discipline and adds ~15% to each view's implementation.",
+      "verdict": "Take it. This is the load-bearing decision of the whole angle."
+    },
+    {
+      "decision": "Show non-significant results and failed edges rather than only the successes",
+      "for": "The reviewer audience checks. APEX lamina q=0.725 and OMM q=0.551 contradict a manuscript sentence; 4 of 7 M5 kinetics metrics are ns for the 'both' group; 437 of 900 clusters have no significant term. Showing them pre-empts the reader's own check and makes the strong effects (PUND 1.9%->15.6%, polysome t1/2 9.9->3.4 min) more credible.",
+      "against": "Denser, less triumphant pages. A press-release reader may find it confusing.",
+      "verdict": "Take it, but always with a visual hierarchy: significant rows solid, non-significant greyed with the q-value shown."
+    },
+    {
+      "decision": "Fill the STREME gap at bake time (387 clusters, ~15 min) instead of shipping 434 logo-less cluster pages",
+      "for": "The logo is the single most expected element of a motif-cluster page. 229 clusters currently have neither a logo nor a name.",
+      "against": "Introduces new PWMs that are not in the manuscript. Must be labelled provenance='streme_refill' so the portal and the figures never silently disagree.",
+      "verdict": "Take it, with the provenance badge mandatory on every logo."
+    },
+    {
+      "decision": "Render the network as ONE connected graph including the 757 cross-module edges, not six separate panels",
+      "for": "28.9% of gated edges cross modules, all 15 module pairs are linked, and the manuscript's own M5-protein x M1-UTR observation (192 undirected edges) lives entirely in the cross set.",
+      "against": "A single 519-node graph is visually busier than six clean bipartite panels, and the published Fig 3e is a 52-node subset.",
+      "verdict": "Take it, but OPEN on the 52-node bipartite_nodes_all6.csv subset so the landing state is the figure the reader recognises, with a one-click expand to all 513."
+    },
+    {
+      "decision": "SVG for the network (519 nodes / 2,620 edges), Canvas only for the 180,000-point UMAP",
+      "for": "SVG gives per-element hit-testing, CSS hover and keyboard focus for free - exactly what R3's click-for-details needs. 180,000 SVG circles is far past the practical ceiling.",
+      "against": "Two rendering codepaths and two hover implementations (DOM events vs a quadtree).",
+      "verdict": "Take it. The measured worst case elsewhere in the app is 381 elements."
+    },
+    {
+      "decision": "One file per gene including annotations, rather than splitting annotations into a lazy second fetch",
+      "for": "Annotations are 52.4% of payload but the mean shard is 3.4 KB gzipped and the max is 10.7 KB. A second round-trip costs more than the bytes.",
+      "against": "Wastes ~1.8 KB per gene view for a reader who never opens the annotation panel.",
+      "verdict": "Take it until measurement says otherwise."
+    },
+    {
+      "decision": "3'UTR and 5'UTR get a continuous NTScore track; the protein panel does not",
+      "for": "Both UTR h5 caches exist and are verified 1:1 with the region sequence for all 18,093 transcripts. The track is what makes the gene page a genuinely new object rather than a worse oRNAment.",
+      "against": "The three panels of the gene page are visually asymmetric, and R1 explicitly asks for the protein sequence too.",
+      "verdict": "Take it and label the asymmetry honestly. The protein panel gets plddt as a per-motif structural-confidence bar (a genuinely discriminating axis: SOX2 HMG-box 0.980 vs its N-terminal IDR motif 0.320) plus the InterPro domain ruler and UniProt feature track, which no UTR panel has. The two halves are asymmetric in different directions, which reads as bilingual rather than broken."
+    }
+  ],
+
+  "effort_days": {
+    "total_person_days": 47,
+    "minimum_publishable_subset_days": 22,
+    "assumption": "one developer comfortable with Python + vanilla JS/SVG; no team; the author available for ~2 hours of questions",
+    "breakdown": [
+      {"block": "Phase 0 - decisions, author questions, theme extraction, repo skeleton", "days": 1.5},
+      {"block": "Phase 1 - bake: corrected master table + canonical clusters.json + assertions (P0-P2)", "days": 4},
+      {"block": "Phase 2 - bake: STREME fill + PWM/logo bundle + instance match table (P3-P4)", "days": 2.5},
+      {"block": "Phase 3 - bake: sequence/NTScore/gene/cluster shards + search index + excluded register (P5-P7, P10)", "days": 3.5},
+      {"block": "Phase 4 - bake: R3 graph bundle, frozen layout, meta-edges, cross-module consensus, UMAP payload, manifest (P8-P9, P12-P13)", "days": 3},
+      {"block": "Phase 5 - app shell: router, theme, omnibox, data loader, caveat chrome, export tray", "days": 3},
+      {"block": "Phase 6 - R1 gene page (sequence viewer, tracks, annotation lanes, motif table)", "days": 6},
+      {"block": "Phase 7 - R2 cluster pages (logo renderer, enrichment, partner tiers, member browser) + faceted browse", "days": 5},
+      {"block": "Phase 8 - R3 network (meta map, cluster graph, bipartite drill-down, node/edge drawers)", "days": 5},
+      {"block": "Phase 9 - Atlas Home + six module story pages + validation panels", "days": 4.5},
+      {"block": "Phase 10 - tour runner + 7 tours + Verify-a-figure mode", "days": 4},
+      {"block": "Phase 11 - evidence/paralogy page, about-the-data, methods walkthrough, glossary", "days": 2},
+      {"block": "Phase 12 - UMAP explorer + isoform case study", "days": 1.5},
+      {"block": "Phase 13 - QA against the golden fixtures, a11y, perf, empty states, Zenodo deposit", "days": 3.5}
+    ],
+    "minimum_publishable_subset": "Phases 0-8 minus the UMAP and cross-module consensus (P9, P12), plus Atlas Home and two tours. Delivers R1, R2, R3 and the narrative front door in 22 days; the remaining 25 days are the material that makes it an atlas rather than a browser."
+  },
+
+  "risks": [
+    {
+      "id": "R-01",
+      "risk": "BLOCKING SCIENTIFIC CONFLICT: the manuscript's only named M2 example says 'MLXIPL ... contains the M2 utr3_0027 motifs', but modules.json assigns utr3_0027 to M1 and the code that built that very figure (build_mlxipl_signatures.py, MLXIPL_M2_signatures.csv) uses utr3_0227 (M2).",
+      "severity": "high",
+      "why_it_matters": "M2's story card and the M2 tour both need this example. Either choice publicly exposes an inconsistency in the paper.",
+      "mitigation": "One question to the author, before any M2 content is written. Evidence for the typo reading is unanimous across five independent files. Build on utr3_0227, and if the author confirms, add a small erratum note on the M2 page. Do NOT ship the M2 tour until this is answered."
+    },
+    {
+      "id": "R-02",
+      "risk": "NOT ESTABLISHED BY THE SURVEY: there is no measured latency or memory figure for rendering the R1 sequence viewer in a real browser. The 381-element worst case is a count, not a render benchmark.",
+      "severity": "medium",
+      "why_it_matters": "The whole R1 design assumes plain DOM spans are fast enough at 7,601 nt with 182 motifs plus 4 CLIP lanes plus a score track.",
+      "mitigation": "Build the viewer against the already-built shard set at /private/tmp/.../scratchpad/r1/full_shards/ on day 1 of Phase 6 and measure NM_001351027 (the 7,784 nt worst case) and NM_001003665 (381 segments) before committing to DOM. Fallback if it fails: render the sequence text in DOM but move the tracks to a single canvas layer."
+    },
+    {
+      "id": "R-03",
+      "risk": "NOT ESTABLISHED: the cross-module consensus association (P9) has never been run. The survey verified only that consensus_presence.npz makes it a bitwise AND away and that 17_consensus_association.py exists.",
+      "severity": "medium",
+      "why_it_matters": "45% of edges (1,190 of 2,620) have no consensus pair today, including every cross-module edge and the M1<->M5 link the manuscript highlights.",
+      "mitigation": "Design the edge drawer with three tiers from the start (consensus pair -> both endpoints' consensus lists -> most frequent literal member strings) so P9 is an upgrade, not a dependency. Time-box P9 to one day."
+    },
+    {
+      "id": "R-04",
+      "risk": "NOT ESTABLISHED: no per-nucleotide NTScore exists for the CDS or the protein, and no delta-attention matrices are stored anywhere (Fig 3a is drawn from synthetic data).",
+      "severity": "medium",
+      "why_it_matters": "The most compelling possible answer to 'why is this stretch highlighted' - showing the actual attribution - cannot be built from files on disk. The protein panel will always be asymmetric to the UTR panels.",
+      "mitigation": "Do not promise it. Ship plddt + InterPro/UniProt/MobiDB tracks on the protein side and label the method explainer's delta-attention diagram 'illustrative schematic (Fig 3a, drawn from synthetic data)'. Ask the author whether attention can be recomputed for a small featured set from the MIRTO checkpoint - it would be the single highest-value addition for reviewers but needs GPU inference, not file reads."
+    },
+    {
+      "id": "R-05",
+      "risk": "STREME refill may not close the gap. prot_0002 (976 seqs, 64.3 s) already returned zero significant motifs, and 62 of the 513 already-run clusters produced nothing.",
+      "severity": "medium",
+      "why_it_matters": "The cluster page layout depends on how many pages actually get a logo. Retrofitting a no-logo layout afterwards is expensive.",
+      "mitigation": "Run P3 in Phase 2, BEFORE Phase 7 lays out the cluster page, and design the page against the real post-refill coverage number. Guaranteed fallbacks that need no STREME: the 20-bin positional histogram (computable for all 900 clusters, 84 KB total, 0 coordinate errors) and a top-k-mer composition table."
+    },
+    {
+      "id": "R-06",
+      "risk": "The narrative promises more than the data supports for RNA-side clusters. 377 of 500 utr3 and 57 of 100 utr5 clusters have NO term at FDR<0.05, versus only 3 of 300 protein clusters.",
+      "severity": "medium",
+      "why_it_matters": "The RNA side is where the science is most novel, and it is exactly where the pages are emptiest. A reader who follows a tour to a UTR cluster may hit a near-blank page.",
+      "mitigation": "Three-tier naming (curated 37 -> enriched 463 -> synthesised composition descriptor for the remaining 437), never a bare id. Lead every UTR cluster page with its PROTEIN partner's features, which is the strong direction: 2,614 of 2,620 passing edges (99.8%) have a protein partner with a significant term, versus only 1,180 (45.0%) with a significant UTR-side term. Route tours through UTR clusters that actually have content."
+    },
+    {
+      "id": "R-07",
+      "risk": "The atlas framing can make statistical co-occurrence read as physical interaction, which is precisely the misreading the manuscript guards against - and a narrative site is more susceptible to this than a bare table browser.",
+      "severity": "high",
+      "why_it_matters": "This is the reputational risk of the whole angle. Guided tours that say 'follow the link from this protein motif to this UTR motif' invite exactly the wrong inference.",
+      "mitigation": "Structural, not cosmetic: (a) the data-model field is named co_occurrence so no template can emit 'binds'; (b) every edge drawer renders all four gate values against their thresholds as first-class columns, not behind a toggle; (c) the caveat sentence lives in persistent chrome on every network and module view, quoted verbatim from module_gene_members/README.md; (d) every node carries two distinguishable badge classes, 'evidence in this dataset' (fold/k/n from the enrichment table) vs 'author inference from literature' (utr5_0096~SRSF3/4 and utr3_0215~PTBP have NO enrichment row and must carry the manuscript's own hedge verbatim)."
+    },
+    {
+      "id": "R-08",
+      "risk": "Sorting an edge table by npmi_raw regenerates the exact artifact leaderboard the analysis removed (25 of the top 30 are ZNF clade artifacts).",
+      "severity": "high",
+      "why_it_matters": "This is the single most likely way for the portal to embarrass the paper.",
+      "mitigation": "Default sort is phylo_corrected_score everywhere. npmi_raw is not offered as a sort key at all except inside the /evidence/paralogy page, where sorting by it is the POINT and each row carries its verdict."
+    },
+    {
+      "id": "R-09",
+      "risk": "Roughly half the site is a dead end for an arbitrary arrival: 387 of 900 clusters and 9,247 of 18,093 transcripts (51.1%) have no module, and 45.3% of motif instances sit in module-less clusters.",
+      "severity": "medium",
+      "why_it_matters": "A story-first site whose stories cover only half the data will feel like a curated highlight reel the moment a reader searches their own gene.",
+      "mitigation": "Give every cluster and every gene a real page with an explicit, explained 'not assigned to a module' state stating the actual reason (its pairs never passed the four-condition gate, or its Louvain community had <2 protein / <2 UTR motifs / <3 edges), plus its best SUB-threshold partners from protein_utr_FINAL_scores.csv rendered greyed with their gate values. This turns a dead end into a result."
+    },
+    {
+      "id": "R-10",
+      "risk": "NOT ESTABLISHED: the exact gene partition behind Fig 4b. The published n=667 vs n=460 cannot be reproduced from the tf_modules intermediates, which hold 858 TFs split 447 M2-leaning / 411 M1-leaning.",
+      "severity": "low",
+      "why_it_matters": "The Verify-a-figure page for Fig 4b would print different n's than the paper.",
+      "mitigation": "Present m1_m2_rbp_enrichment.csv (185 RBPs with rate_M1/rate_M2/log2/p/q, internally consistent) and cite the figure rather than re-deriving n. Flag the discrepancy on that verify page as an open item and ask the author."
+    },
+    {
+      "id": "R-11",
+      "risk": "The published Fig 3c UMAP coordinates live in sequence_analysis_v3_0515, a tree nothing else in the portal references, and there is no saved CSV.",
+      "severity": "low",
+      "why_it_matters": "The interactive Fig 3c silently breaks if that directory is ever cleaned.",
+      "mitigation": "P12 copies cca_winner_umap.npy and row_index.csv into the versioned snapshot and records source path, mtime and SHA-256 in manifest.json. Never recompute."
+    },
+    {
+      "id": "R-12",
+      "risk": "Two scope questions materially change the build and are unanswered: (1) include the SOX2 design story (Fig 5/6, a different audience and a different data tree)? (2) include mouse (827,161 instances, but any-annotation coverage 25.3% vs 63.9% human, and roughly double the build)?",
+      "severity": "medium",
+      "why_it_matters": "Both would change the top-level navigation, not just add a page.",
+      "mitigation": "Ship human-only, descriptive-only v1, but keep the schema species-keyed (annotation_coverage_stats.json already is) and reserve a top-level nav slot named 'Design' that is hidden in v1. Ask both questions in Phase 0."
+    },
+    {
+      "id": "R-13",
+      "risk": "Two silent-wrongness traps that have already bitten during verification: the sequence table's 1,296 duplicated RefSeq ids make .set_index() return a Series and break slicing; plddt is on a 0-1 scale, not 0-100.",
+      "severity": "medium",
+      "why_it_matters": "Either produces a page that looks fine and is wrong - duplicated motif tracks, or every protein motif rendered as 'very low confidence'.",
+      "mitigation": "drop_duplicates('refseq_id_without_ver') is the first line of P5 (verified lossless: 0 of 1,296 groups differ in utr3_sequence or protein_sequence). plddt and motif_score domains are declared once in theme.json (plddt [0,1]; motif_score [-4.83, 0], always negative) and every colour scale reads from there. Both are asserted in P0."
+    },
+    {
+      "id": "R-14",
+      "risk": "GitHub Pages under a personal account dies when the account is renamed or deleted; ~36,700 small shard files also make git clone slow.",
+      "severity": "medium",
+      "why_it_matters": "The URL will be printed in a paper.",
+      "mitigation": "Move the repo to a lab or institutional org BEFORE submission - the single highest-risk item for long-term availability. Generate shards in CI rather than committing them. Mint a Zenodo concept DOI for the built tree and cite that in the manuscript, so the citation resolves even after the portal moves hosts."
+    },
+    {
+      "id": "R-15",
+      "risk": "NOT ESTABLISHED: no accessibility or colour-blind audit was performed, and the palette is Okabe-Ito (which is colour-blind-safe) but M5's #4D4D4D grey is also the natural colour for 'unassigned'.",
+      "severity": "low",
+      "why_it_matters": "Module colour is the primary categorical channel across three views, and grey doing double duty is a real collision.",
+      "mitigation": "Never encode module by colour alone - region is already a second channel (circle protein / square UTR) and every node carries a text label. Use a hatched or dashed outline, not grey fill, for unassigned nodes, and record the deviation in theme.json."
+    }
+  ],
+
+  "acceptance_fixtures": [
+    {"fixture": "ACTB / NM_001101", "expect": "exactly 3 5'UTR, 13 3'UTR and 4 protein motifs; all three 5'UTR motifs in cluster utr5_0004; TIAL1 annotated on the 45-nt AU-rich 3'UTR element at [82,126]; protein [23,27] 'DDAPR' in prot_0040 with InterPro 'Actin family'", "validates": "coordinates, join, clustering, annotations - R1 end to end"},
+    {"fixture": "m4_motif_examples/README.md", "expect": "utr5_0096#0 AGCAGA coverage 0.253 / 70 carriers; utr5_0096#2 UCAUC 0.150 / 64; utr3_0215#0 UCUCC 0.511 / 155; of 1,988 M4 member transcripts, 106 literal-and-carrier, 53 tier A", "validates": "the whole R2 chain and the tier classification"},
+    {"fixture": "prot_0040 x utr5_0004", "expect": "phylo_corrected_score 1.7694, co_count 175, n_indep_clades 23, frac_co_ZNF 0.0; UTR consensus CGCCGCCACC; protein cluster Histone-fold InterPro fold 26.45", "validates": "R3 edge drawer and the default network entry point"},
+    {"fixture": "utr3_0463", "expect": "eCLIP SLBP fold 48.62 k=22 n=196; miR-760 fold 16.99; 17 co-carriers with prot_0040, all histones (H3-5, H3-3A, H2AC13...)", "validates": "the carrier-gene bitwise AND and the enrichment de-duplication"},
+    {"fixture": "streme_pos_cache_all6.pkl (142 clusters)", "expect": "recomputed 20-bin relpos histograms reproduce pos_hist and median_pos, e.g. utr3_0215 median_pos 0.4441 n_instances 566; utr5_0090 median_pos 0.791", "validates": "the positional histogram recomputation for all 900"},
+    {"fixture": "TTN search", "expect": "an informative empty state naming NM_001267550 and the reason 'transcript length 37,239 nt exceeds the 7,784 nt model context', NOT a zero-result", "validates": "the excluded-transcript register"},
+    {"fixture": "annotation_coverage_stats.json", "expect": "all 8 published percentages reproduce exactly after the region mask (rbp 51.358%, mirna 4.698%, interpro 67.758%, elm 0.313%, uniprot 90.201%, mobidb 87.206%, idpo 0.750%, signalp 0.117%)", "validates": "the MobiDB/IDPO/SignalP leak fix"}
+  ]
+}

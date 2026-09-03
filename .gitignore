@@ -1,0 +1,6 @@
+# build intermediates — regenerable from source data, never deployed
+code/build/_cache/
+code/build/__pycache__/
+**/__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,1494 @@
+{
+ "requirement": "R2 \u2014 MOTIF / CLUSTER VIEW. Given a motif (arrived at either as a specific instance from the R1 transcript view, or as a cluster id from browse/network/search), show: (a) which cluster it belongs to and what that cluster looks like as a sequence object (logo/consensus, positional distribution, size, composition); (b) how that cluster associates with protein features on the other modality \u2014 the ranked partner clusters, their NPMI/APC statistics, their enriched protein features, and whether each association survived or failed the four-condition phylogenetic-independence gate; (c) every annotation attached to the motif and to its cluster, with source, denominator, effect size and FDR. The view must remain informative \u2014 never blank, never misleading \u2014 across the large coverage gaps measured in this dataset: 434 of 900 clusters have no PWM, 437 have no term at FDR<0.05 (499 under the authors' own mandated triple gate), 387 have no module, and 282 of 600 UTR clusters have zero partners passing the phylo filter.",
+ "units": [
+  {
+   "id": "R2-001",
+   "name": "Cluster identity header with three-tier name",
+   "what_it_shows": "The cluster's id, region, module, size, and a human-readable name that is never a bare id \u2014 plus an explicit badge naming which of three naming tiers produced it.",
+   "encoding": "Title line (name in serif, id in mono); tier badge with three distinct fills: 'curated' (37 clusters), 'top enriched term' (426 more), 'derived descriptor' (437). Region and module chips in the published palette.",
+   "data_source": "Tier 1: .../figure3_4/motif_pair_network/intermediate/cluster_term_labels.csv (65 rows, 37 distinct clusters \u2014 I verified; cols cluster, display, source, fold, rank). Tier 2: intermediate/cluster_term_enrichment.csv.gz top row by fdr_cluster after dedup. Tier 3: intermediate/consensus_meta.csv consensus + base composition from motif_full_annotations.parquet.motifs + n_instances.",
+   "interactions": [
+    "hover tier badge -> how this name was derived, with the tier's cluster count",
+    "click id -> copy"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "463 of 900 clusters have a significant term to name them and 437 do not. Without a three-tier rule, roughly half of all R2 pages open with 'utr3_0342' as their title, which makes the view unusable for browsing. The tier badge is what keeps a synthesised descriptor from being mistaken for a finding.",
+   "precompute_needed": "Yes \u2014 resolve all 900 names at build time into clusters.json; tier 3 requires computing base/residue composition per cluster from the motifs column.",
+   "prior_art": "Pfam/InterPro entry pages, which always carry a short name plus a curation-status badge."
+  },
+  {
+   "id": "R2-002",
+   "name": "Arrival-context banner (the instance you clicked)",
+   "what_it_shows": "When R2 is reached from a motif span in R1, the specific instance that brought the reader here: gene, transcript, coordinates, its own sequence, and how it sits inside the cluster's distributions.",
+   "encoding": "Slim banner above the header: mono sequence, gene/transcript chip, and three inline percentile ticks (this instance's motif_score, motif_entropy, and length against the cluster's own distribution).",
+   "data_source": "motif_full_annotations.parquet row at raw_motif_index (gene_symbol, sequence_id, motif_start, motif_end, motifs, motif_score, motif_entropy, plddt); cluster quantiles precomputed per cluster.",
+   "interactions": [
+    "'back to ACTB' returns to the exact highlighted span",
+    "dismiss to see the generic cluster page"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "R2 is defined as 'for a motif', not 'for a cluster'. Every one of the four candidate designs routes /gene -> /cluster and then drops the instance entirely, so the reader loses the thing they clicked. This banner is the only unit that keeps the instance present, and the percentile ticks answer the immediate question 'is my motif typical of this cluster?'",
+   "precompute_needed": "No \u2014 instance row is already loaded; cluster quantiles come from the cluster shard.",
+   "prior_art": "gnomAD variant pages, which keep the queried variant pinned while showing gene-level context."
+  },
+  {
+   "id": "R2-003",
+   "name": "Hierarchy breadcrumb (instance -> uid -> cluster -> module)",
+   "what_it_shows": "Where the reader is in the four nested motif objects, with the count at each level.",
+   "encoding": "Chip trail: instance (1 of 889,215) / unique_motif_id (1 of 577,186) / cluster (1 of 900) / module (1 of 6, or a grey 'no module').",
+   "data_source": "motif_full_annotations.parquet counts; modules.json expanded to a 513-cluster map.",
+   "interactions": [
+    "click a level -> that level's view",
+    "hover the uid chip -> the contextual-embedding warning"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "34,110 unique_motif_ids (5.91%) sit in more than one cluster \u2014 'CTGGA' spans 176. Readers will otherwise assume a motif string maps to one cluster. The breadcrumb is where that trap becomes visible without a methods detour.",
+   "precompute_needed": "No.",
+   "prior_art": "Ensembl gene/transcript/exon breadcrumbs."
+  },
+  {
+   "id": "R2-004",
+   "name": "Per-cluster paralog/ZNF artifact badge",
+   "what_it_shows": "What fraction of this cluster's carrier genes belong to the KRAB-ZNF expansion \u2014 a per-cluster artifact risk that exists nowhere in the shipped data.",
+   "encoding": "Small badge on a 0-1 scale with three bands (low <0.05 / elevated 0.05-0.20 / high >0.20), showing the raw fraction and the gene count.",
+   "data_source": "COMPUTED BY ME from motif_full_annotations.parquet: distinct (motif_cluster, gene_symbol), gene_symbol matching ^ZNF|^ZFP|^ZSCAN|^ZKSCAN. Measured: median 0.0129, p99 0.884; 16 clusters >0.20, 14 clusters >0.40. Top: prot_0148 0.973, prot_0228 0.973, prot_0043 0.969, utr3_0176 0.962, utr5_0020 0.935.",
+   "interactions": [
+    "hover -> the ZNF gene list and why paralogy inflates co-occurrence",
+    "click -> the methods paralogy section"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "All four designs surface frac_co_ZNF per EDGE only, so a reader can open prot_0228 \u2014 a cluster that is 97.3% ZNF genes \u2014 and see nothing unusual until they click an edge. prot_0228 x utr5_0020 is precisely the #1 raw-NPMI pair the authors annotate as 'ZNF clade artifact'. Both of its endpoint clusters are >93% ZNF, so the risk is a property of the node, and labelling it at the node is more honest and cheaper than waiting for the edge.",
+   "precompute_needed": "Yes \u2014 one groupby at build time into clusters.json. A proper version should use the 36 protein classes from the TF-IDF/Louvain families rather than a symbol regex; the regex is a defensible v1 proxy and should be labelled as such.",
+   "prior_art": "gnomAD's flag system, where a locus carries quality warnings independent of any individual query."
+  },
+  {
+   "id": "R2-005",
+   "name": "Sequence logo from STREME PWM",
+   "what_it_shows": "The cluster's discovered motif as an information-content logo \u2014 the expected centrepiece of any motif-cluster page.",
+   "encoding": "Bits-scaled stacked letters, y-axis in bits (0-2 for RNA over ACGU, 0-log2(20) for protein over the 20 aa). Nucleotides A #009E73 / C #0072B2 / G #E69F00 / U #D55E00; amino acids by the examples_lib.aacol scheme. Width 5-12 (measured min 5, median 5, max 12).",
+   "data_source": ".../intermediate/consensus_repertoire.pkl \u2014 per cluster {n_sig, n_found, n_discovery_instances, motifs:[{w, nsites, evalue, pvalue, consensus, coverage, pwm ndarray}]}. Verified: 513 clusters, 451 with n_sig>0, 1,226 motifs total; the 62 with n_sig==0 have an EMPTY motifs list and are all protein.",
+   "interactions": [
+    "hover a column -> the per-position probability vector as a mini bar chart",
+    "switch between the cluster's multiple consensus",
+    "export SVG and MEME-format PWM"
+   ],
+   "library": "custom SVG renderer (~120 lines) or logomaker for print export",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the single most expected element of a motif cluster page, and the PWMs already exist. Rendering as SVG rather than a pre-rendered image matters because pre-rendered logos exist for only ~100 of 900 clusters.",
+   "precompute_needed": "Yes \u2014 round PWMs to 4 dp and emit as JSON (~0.56 MB for 451 clusters). Note rep[cluster]['motifs'] is empty for n_sig==0, so the loader must handle an empty list, not just a missing key."
+  },
+  {
+   "id": "R2-006",
+   "name": "Logo selection rule and quality badge",
+   "what_it_shows": "Which of a cluster's stored motifs is being shown as 'the' logo, and whether that motif is actually trustworthy \u2014 its E-value, site count, and coverage.",
+   "encoding": "Badge under the logo reading e.g. 'STREME \u00b7 E=9.2e-14 \u00b7 394 sites \u00b7 covers 51% of members'. Amber tint when E>0.05, when nsites<20, or when coverage<0.25.",
+   "data_source": "consensus_repertoire.pkl motif fields evalue, nsites, coverage, pvalue.",
+   "interactions": [
+    "hover -> what each number means",
+    "a 'show all N motifs' expander listing every stored motif with its own quality row"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "MEASURED TRAP no design caught: 442 of the 1,226 stored STREME motifs have evalue > 0.05 \u2014 stored but NOT significant. Naively rendering motifs[0] shows a non-significant motif for 50 of 451 clusters and a thin one (nsites<20) for 24. Selecting best-by-coverage instead improves this to 78 non-significant and 23 thin, so the selection rule must be explicit AND the residual must be badged. nsites goes as low as 3; a three-site logo presented without a badge is a fabrication.",
+   "precompute_needed": "Yes \u2014 pick the display motif at build time (recommend: highest coverage among evalue<=0.05; fall back to highest coverage overall with an amber badge) and store the choice so the UI is deterministic."
+  },
+  {
+   "id": "R2-007",
+   "name": "Coverage bar with plain-language explainer",
+   "what_it_shows": "What fraction of the cluster's own members the displayed consensus actually matches \u2014 the number that stops a logo being read as 'the site in your gene'.",
+   "encoding": "Horizontal 0-1 bar directly beneath the logo, with the percentage in text and a cohort tick at the corpus median (0.534). Bar turns amber below 0.30 and carries an inline caution below 0.25.",
+   "data_source": "consensus_meta.csv columns coverage, carriers (1,226 rows / 451 clusters). MEASURED best-consensus-per-cluster coverage: median 0.534, p10 0.215, p25 0.377, p75 0.709, p90 0.880, min 0.010.",
+   "interactions": [
+    "hover -> 'coverage = fraction of this cluster's instances matched at >=0.5 bits/position by this consensus'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "MEASURED: 43.9% of the 451 clusters with a consensus have a best coverage below 0.5; 16.6% below 0.3; 9.5% below 0.2. The brief explicitly names this as a place a unit becomes misleading, and the measurement shows it is not an edge case but nearly half the population. Without this bar the logo silently over-claims on ~200 cluster pages.",
+   "precompute_needed": "No \u2014 coverage ships in consensus_meta.csv."
+  },
+  {
+   "id": "R2-008",
+   "name": "Low-coverage logo demotion state",
+   "what_it_shows": "For clusters whose best consensus covers under ~25% of members, the logo is demoted from headline to evidence: shown smaller, beside the composition fallback rather than above it, with a one-line statement of what it does and does not represent.",
+   "encoding": "Two-up layout: half-size logo on the left, top-k-mer table on the right, joined by a caption 'this consensus describes 18% of the cluster's 640 members'.",
+   "data_source": "consensus_meta.csv coverage; motif_full_annotations.parquet motifs value_counts for the k-mer side.",
+   "interactions": [
+    "'promote logo' override for users who want it large anyway"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "A coverage badge under a full-size logo is still read as a caption on a headline. 43 of 451 clusters have a best coverage below 0.20 \u2014 for those the honest visual hierarchy is different, not just annotated differently. Demotion is the design response to the brief's own warning about 20% coverage.",
+   "precompute_needed": "No \u2014 a threshold on an existing field."
+  },
+  {
+   "id": "R2-009",
+   "name": "Consensus repertoire table",
+   "what_it_shows": "All of a cluster's discovered consensus (1-10, median 2) with coverage, carrier count and E-value, so a reader sees whether the cluster has one signature or several.",
+   "encoding": "Rows: cid, consensus in mono (RNA alphabet), coverage bar, carriers count, E-value. Selected row drives the logo above.",
+   "data_source": "consensus_meta.csv (cid, cluster, module, region, consensus, coverage, carriers) joined to consensus_repertoire.pkl for evalue/nsites. Verified rows-per-cluster: {1:120, 2:107, 3:91, 4:75, 5:40, 6:12, 7:4, 9:1, 10:1}. carriers median 232, min 3, max 2,242.",
+   "interactions": [
+    "click a row -> the logo switches",
+    "sort by coverage or carriers"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "331 of 451 clusters have more than one consensus. Showing only the top one implies a unimodal cluster that frequently is not one, and hides the sub-motif structure that the consensus-level pair scores later depend on.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-010",
+   "name": "Consensus heterogeneity indicator",
+   "what_it_shows": "Whether a cluster's multiple consensus are variations on one theme or genuinely different sequences \u2014 i.e. whether the k-means bucket is coherent.",
+   "encoding": "A small similarity chip beside the repertoire table: 'coherent' when the cluster's consensus share a dominant composition, 'heterogeneous' when they do not, with the pairwise consensus similarity shown as a tiny matrix on hover.",
+   "data_source": "consensus_meta.csv consensus strings; similarity computed at build time (simple k-mer cosine or edit distance is sufficient \u2014 TOMTOM from the same MEME install would be the rigorous version).",
+   "interactions": [
+    "hover -> the pairwise matrix",
+    "link to the length histogram, which is the other heterogeneity signal"
+   ],
+   "library": "none",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "Clusters are k-means buckets over motif embeddings, not curated families. A cluster whose consensus are 'UUUUU' and 'GCCACC' is telling the reader something important about the clustering that no other unit on the page conveys. It is the difference between 'this cluster has a motif' and 'this cluster has motifs'.",
+   "precompute_needed": "Yes \u2014 pairwise similarity for the 331 multi-consensus clusters, trivial cost."
+  },
+  {
+   "id": "R2-011",
+   "name": "Logo provenance badge",
+   "what_it_shows": "Whether the displayed sequence object is a real STREME fit, a build-time-derived PFM, or absent \u2014 so the portal can never silently disagree with the published figures.",
+   "encoding": "Badge: 'STREME v5.5.9' / 'derived from member instances \u2014 not a STREME motif' / 'no significant motif found'.",
+   "data_source": "consensus_repertoire.pkl n_sig, n_found, n_discovery_instances; STREME invocation recorded from motif_pair_network/16_consensus_repertoire.py.",
+   "interactions": [
+    "hover -> the exact STREME command line and background file used"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "If the STREME gap-fill is run, ~700 of 900 clusters will have PWMs but only 466 of them will match the matrices behind the published figures. A reader comparing the portal to Fig 3e needs to know which is which, and provenance is the only thing that lets the portal add coverage without contradicting the paper.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-012",
+   "name": "Composition fallback: top member k-mers",
+   "what_it_shows": "For the 434 clusters with no PWM at all, the most frequent literal member motif strings with counts \u2014 honest, computable today, and explicitly not a consensus.",
+   "encoding": "Ranked mono list with count bars and percent-of-cluster, headed 'most frequent member sequences (not a consensus)'.",
+   "data_source": "motif_full_annotations.parquet motifs column, value_counts within motif_cluster. Verified 434 clusters have no PWM anywhere (utr3 251, prot 149, utr5 34).",
+   "interactions": [
+    "click a string -> filters the member table to instances carrying it",
+    "'search this string corpus-wide'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "48% of cluster pages would otherwise have no sequence object at all. This is the only fallback that needs no new computation and makes no claim the data cannot support.",
+   "precompute_needed": "Yes \u2014 top 12 strings per cluster into the cluster shard."
+  },
+  {
+   "id": "R2-013",
+   "name": "Member length histogram with modal-fraction callout",
+   "what_it_shows": "How heterogeneous the cluster's member lengths are \u2014 and therefore why members cannot simply be stacked into a logo.",
+   "encoding": "Bar histogram over motif_length with the modal length marked and the modal fraction printed as a sentence.",
+   "data_source": "motif_full_annotations.parquet motif_length grouped by motif_cluster. MEASURED per cluster: distinct lengths median 42 (min 10, max 79); modal fraction median 0.225 (p10 0.142, p90 0.389, max 0.967); only 32 of 900 clusters reach modal fraction >=0.5, 214 reach >=0.3. Median member length 8, max 50.",
+   "interactions": [
+    "click a bar -> filters members to that length",
+    "hover -> count and percent"
+   ],
+   "library": "custom SVG or Plotly go.Bar",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the visual proof of a methodological constraint that would otherwise be an unsupported assertion. A reader who wonders why the page shows a 5-mer logo for a cluster whose members are 5-50 nt gets the answer here rather than doubting the page.",
+   "precompute_needed": "Yes \u2014 a 20-bin histogram plus modal stats per cluster."
+  },
+  {
+   "id": "R2-014",
+   "name": "Composition ring (nucleotide / amino-acid)",
+   "what_it_shows": "The base or residue composition of the cluster's members \u2014 what makes 'AU-rich' or 'GC-rich' a checkable claim rather than a label.",
+   "encoding": "Donut in NT_COLORS (A #009E73, C #0072B2, G #E69F00, U #D55E00) or amino-acid class colours, with percentages and a GC readout for UTR clusters.",
+   "data_source": "Computed from motif_full_annotations.parquet motifs strings per cluster. Cross-check available for 140 clusters against .../tf_modules/intermediate/utr_composition.csv (fA, fC, fG, fT, GC, ARE_per_knt, polyU_per_knt, Gtract_per_knt, PAS_per_seq).",
+   "interactions": [
+    "hover -> exact fractions",
+    "compare toggle against the region cohort mean"
+   ],
+   "library": "d3-shape arc or custom SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Composition is available for all 900 clusters when a logo is available for only 466, so it is the one sequence-character signal with universal coverage. It also directly substantiates the M1-vs-M2 AU-rich/GC-rich distinction (measured M1 utr3 mean GC 0.344 vs M2 0.497).",
+   "precompute_needed": "Yes \u2014 per-cluster composition into clusters.json."
+  },
+  {
+   "id": "R2-015",
+   "name": "RNA/DNA alphabet toggle",
+   "what_it_shows": "UTR sequences and motif strings as RNA (U), matching every motif name the manuscript uses, or as the stored DNA alphabet.",
+   "encoding": "Two-state segmented control; RNA is the default. Never applied to protein sequences, where U is selenocysteine.",
+   "data_source": "Storage is DNA-only (verified: utr5 and utr3 motif alphabets are A/C/G/T with zero U). STREME consensus strings in consensus_meta.csv are already RNA (U), so the two layers disagree by default.",
+   "interactions": [
+    "toggle re-renders logo letters, consensus strings, k-mer table and member sequences",
+    "search accepts both and normalises to T before matching"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The consensus table ships RNA and the member table ships DNA. On the same page, 'UCUCC' and 'TCTCC' will appear side by side as if they were different motifs unless one convention is imposed. A reader typing the manuscript's UCUCC gets zero hits without normalisation.",
+   "precompute_needed": "No \u2014 display-time transliteration."
+  },
+  {
+   "id": "R2-016",
+   "name": "Aligned member preview strip",
+   "what_it_shows": "A handful of actual member instances aligned on their best PWM match, so a reader sees what the logo abstracts.",
+   "encoding": "8-12 mono rows, matched window upper-case and tinted, flanks lower-case grey, all aligned to a fixed column; a bits score per row.",
+   "data_source": "motif_full_annotations.parquet motifs + the cluster PWM; per-instance best-window score computed with the same coverage() definition (COV_BITS=0.5, uniform background) used in motif_pair_network/16_consensus_repertoire.py so numbers match the published coverage. Schema precedent exists in m4_motif_examples/m4_motif_instances.csv (matched_window, match_start, bits, exact).",
+   "interactions": [
+    "'show more' pages through members",
+    "sort by bits",
+    "click a row -> that instance's transcript"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "L",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the standard way to show what a motif cluster actually contains, and it is the only unit that lets a reader audit the coverage number rather than trust it. STREME's own sites.tsv cannot be used for this \u2014 its seq_ID is an integer index into a score-sorted, 1200-capped discovery FASTA with headers '>0','>1', so it is orphaned from gene identity.",
+   "precompute_needed": "Yes \u2014 slide each cluster's display PWM over its members, store (raw_motif_index, offset, bits). This is new computation, but it is the same function the pipeline already runs."
+  },
+  {
+   "id": "R2-017",
+   "name": "Logo column probability tooltip",
+   "what_it_shows": "The full letter-probability vector at one logo position.",
+   "encoding": "Mini horizontal bar chart of the 4 or 20 probabilities, sorted descending, inside the tooltip.",
+   "data_source": "consensus_repertoire.pkl motifs[].pwm rows (verified shape w x 20 protein, w x 4 RNA; rows sum to 1.0000).",
+   "interactions": [
+    "hover a logo column"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Information-content height compresses two things \u2014 how peaked the distribution is and which letter wins. A reader judging whether position 3 is 'C or nothing' versus 'C or U' cannot recover that from stack height alone.",
+   "precompute_needed": "No \u2014 the PWM is already loaded for the logo."
+  },
+  {
+   "id": "R2-018",
+   "name": "No-logo empty state",
+   "what_it_shows": "For clusters with no PWM, an explicit statement of why, with the population count, rather than a missing panel.",
+   "encoding": "Bordered card: 'STREME was not run for this cluster' or 'STREME found no significant motif (E>0.05) among N discovery instances', plus '434 of 900 clusters are in this state' and a pointer to the fallback below.",
+   "data_source": "consensus_repertoire.pkl membership and n_sig; the 513-cluster STREME scope from intermediate/consensus_scope_clusters.csv. Verified: 62 module clusters have n_sig==0 and all 62 are protein; 387 clusters were never run.",
+   "interactions": [
+    "link to methods explaining the 513-cluster scope"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The two reasons for a missing logo are scientifically different \u2014 'not attempted' versus 'attempted and found nothing' \u2014 and the second is itself a result about the cluster. Collapsing them into a blank panel discards information and reads as a bug.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-019",
+   "name": "Positional histogram along the region",
+   "what_it_shows": "Where along its region this cluster's motifs fall \u2014 the evidence behind 'cap-proximal', 'at the start codon', 'mid-protein'.",
+   "encoding": "20-bin bar chart over relative position 0-1, x-axis labelled 5' and 3' (or N and C), with a median tick and the median value printed.",
+   "data_source": "COMPUTABLE FOR ALL 900 CLUSTERS: relpos = (motif_start+motif_end)/2 / region_length, joining motif_full_annotations.parquet to the deduplicated GRCh37_latest_rna_sequence_pairs_long_transcript.parquet (18,093/18,093 join, 0 out-of-range). Validate against the 142 clusters already in intermediate/streme_pos_cache_all6.pkl (pos_hist, median_pos, n_instances) \u2014 I confirmed utr3_0215 pos_hist sums to 566 = n_instances, median_pos 0.4441.",
+   "interactions": [
+    "click a bin -> filters the member table to that positional decile",
+    "hover -> count and position range",
+    "toggle relative vs absolute nt from the region 5' end"
+   ],
+   "library": "custom SVG or Plotly go.Bar",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is one of only three universal signals (with size and composition) available for every cluster, and it carries real scientific content the manuscript relies on. The on-disk cache covers 142 clusters; recomputing all 900 costs ~84 KB and closes the gap entirely.",
+   "precompute_needed": "Yes \u2014 20-bin histogram + median for all 900. Validate the 142 overlapping clusters reproduce the published pos_hist before shipping."
+  },
+  {
+   "id": "R2-020",
+   "name": "Positional histogram versus region cohort",
+   "what_it_shows": "Whether this cluster's positional bias is distinctive or just the background shape of motifs in that region.",
+   "encoding": "The cluster's 20-bin histogram drawn over a faint grey silhouette of the pooled distribution for all clusters of the same region, both normalised to density; a one-line KS or median-shift readout.",
+   "data_source": "Same relpos computation, pooled per region. Region means measured: protein 0.497, utr3 0.501, utr5 0.483 \u2014 i.e. the background is close to uniform, so departures are meaningful. Per-cluster median relpos ranges 0.004 to 0.997 (p10 0.217, p90 0.673).",
+   "interactions": [
+    "toggle the cohort overlay",
+    "hover -> both densities at that bin"
+   ],
+   "library": "custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "No design included a baseline, and a bare histogram invites over-reading. Because the pooled background is nearly uniform, the overlay is cheap and makes 'cap-proximal' a visible departure rather than an assertion \u2014 which is exactly what distinguishes utr5_0079 from an ordinary 5'UTR cluster.",
+   "precompute_needed": "Yes \u2014 three pooled region histograms, ~1 KB total."
+  },
+  {
+   "id": "R2-021",
+   "name": "Landmark-anchored position track",
+   "what_it_shows": "For UTR clusters, distance from the biologically meaningful landmark rather than from the region edge: nt from the cap for 5'UTR, nt from the stop codon for 3'UTR, nt to the start codon.",
+   "encoding": "A second histogram in absolute nucleotides on a log-ish axis, with the landmark at 0 and a note naming it.",
+   "data_source": "motif_start/motif_end plus region lengths from the GRCh37 sequence parquet; the 5'UTR-to-ATG distance is (utr5_len - motif_end), the 3'UTR-from-stop distance is motif_start.",
+   "interactions": [
+    "switch landmark",
+    "brush a distance window -> filters members"
+   ],
+   "library": "custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Relative position confounds long and short UTRs. The Kozak claim for utr5_0004 is specifically about proximity to the start codon in nucleotides \u2014 a relative-position histogram at median 0.79 understates it, because a 0.79 position in an 84-nt 5'UTR and a 4,705-nt one mean completely different things. This is the unit that makes the M6 story checkable.",
+   "precompute_needed": "Yes \u2014 absolute-distance histograms per cluster, two per UTR cluster."
+  },
+  {
+   "id": "R2-022",
+   "name": "Cluster size stat block",
+   "what_it_shows": "Instances, distinct genes, distinct transcripts and distinct unique_motif_ids for the cluster.",
+   "encoding": "Four stat rows with the value and a percentile tick against the 900-cluster distribution.",
+   "data_source": "groupby('motif_cluster') on motif_full_annotations.parquet. MEASURED: n_instances mean 988, median 920, min 218 (utr3_0359), max 5,755 (utr3_0188); n_genes mean 597, median 565, min 23 (prot_0092), max 4,532; n_unique_motif_ids median 786.",
+   "interactions": [
+    "hover a stat -> its corpus distribution as a mini histogram with this cluster marked"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Every enrichment fold and every coverage fraction on the page is relative to these denominators. Without them the reader cannot calibrate anything else. The reassuring measured fact is that no cluster is tiny \u2014 the minimum is 218 instances \u2014 so no page is statistically hollow.",
+   "precompute_needed": "Yes \u2014 into clusters.json."
+  },
+  {
+   "id": "R2-023",
+   "name": "Sequence redundancy meter",
+   "what_it_shows": "How much of the cluster's apparent size is distinct sequence versus the same string recurring \u2014 n_unique_motif_ids / n_instances.",
+   "encoding": "A single 0-1 bar with the corpus median marked, labelled 'distinct sequences per instance'.",
+   "data_source": "motif_full_annotations.parquet unique_motif_id nunique / size per cluster. MEASURED: median 0.929 \u2014 most clusters are dominated by distinct strings, so a low value is genuinely unusual and worth flagging.",
+   "interactions": [
+    "hover -> the count of instances and the count of distinct strings",
+    "click -> the k-mer table sorted by recurrence"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "A cluster of 900 instances that is really 90 strings repeated ten times is a different object from 900 distinct strings, and no other unit distinguishes them. Because the corpus median is 0.929, this reads as a clean anomaly detector rather than noise.",
+   "precompute_needed": "Yes \u2014 one ratio per cluster."
+  },
+  {
+   "id": "R2-024",
+   "name": "Gene concentration bar",
+   "what_it_shows": "Whether one gene supplies a disproportionate share of the cluster's instances.",
+   "encoding": "Top-5 genes as horizontal bars showing their share of instances, with the corpus p99 marked as a reference.",
+   "data_source": "motif_full_annotations.parquet (motif_cluster, gene_symbol) counts. MEASURED top-gene share: median 0.0101, p90 0.0303, p99 0.078, max 0.166; only 6 of 900 clusters have a single gene supplying >10% of instances.",
+   "interactions": [
+    "click a gene -> its transcript view"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "It is the within-cluster analogue of the clade-concentration idea that the phylo filter applies between clusters, and it is reassuring almost everywhere (median 1%), which makes the 6 exceptions worth seeing. Cheap, and it forecloses a reviewer question.",
+   "precompute_needed": "Yes \u2014 top-5 gene shares per cluster."
+  },
+  {
+   "id": "R2-025",
+   "name": "Score / entropy / pLDDT distributions versus corpus",
+   "what_it_shows": "Where this cluster's members sit on the model's own confidence axes relative to all motifs.",
+   "encoding": "Three horizontal violins (two for UTR clusters), each with the corpus distribution as a faint ghost behind and the cluster median as a tick. motif_score axis MUST be negative-domain (measured corpus min -4.831, median -1.135, max ~0). pLDDT axis MUST be 0-1, not 0-100 (measured min 0.1, median 0.8, max 1.0).",
+   "data_source": "motif_full_annotations.parquet motif_score, motif_entropy, plddt grouped by motif_cluster. MEASURED per-cluster medians: motif_score -2.900 to -0.009; motif_entropy 0.044 to 2.847; plddt (300 protein clusters) 0.215 to 0.972, median 0.801.",
+   "interactions": [
+    "brush a score range -> filters the member table",
+    "hover -> quartiles and percentile within the corpus"
+   ],
+   "library": "Plotly go.Violin or custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "pLDDT cluster medians spanning 0.215-0.972 is a genuinely discriminating axis that separates ordered-domain clusters from IDR clusters, and it is the quantitative backing for the M1/M5 disorder and phase-separation narrative. The corpus ghost is what turns an uninterpretable violin into a comparison.",
+   "precompute_needed": "Yes \u2014 per-cluster quantiles plus three corpus reference distributions."
+  },
+  {
+   "id": "R2-026",
+   "name": "pLDDT bimodality indicator (protein clusters)",
+   "what_it_shows": "Whether a protein cluster is structurally coherent (one pLDDT mode) or mixes ordered and disordered instances.",
+   "encoding": "A small annotation on the pLDDT violin: 'ordered' / 'disordered' / 'mixed', with the fraction of members above and below 0.7 printed.",
+   "data_source": "motif_full_annotations.parquet plddt for protein rows only (254,466 non-null, 0 for UTR).",
+   "interactions": [
+    "click 'mixed' -> splits the member table into the two populations"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "A median alone hides bimodality, and a bimodal pLDDT cluster is a signal that the k-means bucket merged two structural contexts \u2014 directly relevant to whether the cluster's InterPro enrichment should be trusted for all its members.",
+   "precompute_needed": "Yes \u2014 fraction above/below threshold plus a simple bimodality flag."
+  },
+  {
+   "id": "R2-027",
+   "name": "Region-conditional panel switch",
+   "what_it_shows": "Not a chart but a layout rule with visual consequences: protein clusters get pLDDT, InterPro/MobiDB/ELM/IDPO/SignalP and no positional-RBP lane; UTR clusters get eCLIP/PAR-CLIP/iCLIP/miRNA and no pLDDT panel at all.",
+   "encoding": "n/a \u2014 determines which units render.",
+   "data_source": "Cluster prefix (prot_/utr3_/utr5_), verified perfectly consistent with the region column across all 889,215 rows (crosstab is exactly diagonal).",
+   "interactions": [
+    "none"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "One generic template would render an empty pLDDT panel on 600 pages and an empty InterPro panel on 600 pages. The prefix is a reliable switch, so there is no reason to pay that cost.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-028",
+   "name": "Cluster-versus-all-clusters context scatter",
+   "what_it_shows": "This cluster's position in the whole 900-cluster space on two chosen axes, so its size, distinctiveness and annotation depth are read as relative rather than absolute.",
+   "encoding": "Small scatter of all 900 clusters (x = n_instances, y = n_genes by default), points coloured by module with grey for the 387 unassigned, this cluster ringed and labelled. Axis pair switchable to (median pLDDT, median score), (coverage, n_partners), (n_sig_terms, n_genes).",
+   "data_source": "Precomputed clusters.json rows built from groupby on motif_full_annotations.parquet plus partner counts from protein_utr_FINAL_scores.csv and term counts from cluster_term_enrichment.csv.gz.",
+   "interactions": [
+    "switch axis pair",
+    "hover another point -> that cluster's card",
+    "click -> navigate there",
+    "brush -> 'compare these clusters'"
+   ],
+   "library": "Plotly go.Scattergl or custom canvas",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "The brief asks for 'this cluster vs all clusters' and 900 points is a trivial render. It is the only unit that answers 'is this cluster unusual?' \u2014 a question a reader has on every page and that no per-cluster statistic answers on its own. It doubles as the navigation surface between clusters.",
+   "precompute_needed": "Yes \u2014 a single 900-row table (~200 KB) shipped once and reused on every cluster page."
+  },
+  {
+   "id": "R2-029",
+   "name": "Percentile rails on every headline statistic",
+   "what_it_shows": "For each scalar on the page (size, coverage, median score, median pLDDT, partner count, term count), where it falls in the 900-cluster distribution.",
+   "encoding": "A 60px hairline rail under each number with a marker at this cluster and faint ticks at p10/p50/p90.",
+   "data_source": "Corpus quantiles computed once from clusters.json.",
+   "interactions": [
+    "hover -> 'p73 of 900 clusters'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It converts every isolated number on the page into a calibrated one at near-zero cost, and it is the cheapest possible version of the 'vs all clusters' requirement \u2014 present on every stat rather than confined to one scatter.",
+   "precompute_needed": "Yes \u2014 quantile arrays per statistic."
+  },
+  {
+   "id": "R2-030",
+   "name": "Partner cluster table with evidence-tier toggle",
+   "what_it_shows": "The ranked cross-modal partner clusters \u2014 the literal answer to 'how does this motif interact with protein features' \u2014 under an explicit, reader-chosen evidence threshold.",
+   "encoding": "Rows sorted by phylo_corrected_score, showing partner id, its auto-name, phylo_corrected_score, npmi_mip_APC, co_count, and the four gate values inline. Tier control is a radio with the resulting count printed in each label so the cost of relaxing is visible before clicking.",
+   "data_source": ".../sequence_analysis_v4_0621/results/protein_utr_FINAL_scores.csv (180,000 rows; cols protein, utr, co_count, n_indep_families, n_indep_clades, clade_concentration, frac_co_ZNF, npmi_raw, npmi_mip_APC, npmi_reweighted, npmi_family, perm_z_withinfamily, perm_p_withinfamily, passes_phylo_filter, phylo_corrected_score). MEASURED tiers: STRICT passes_phylo_filter 2,620 edges, 318/600 UTR clusters (median 5 partners, p90 23, max 39) and 201/300 protein (median 8, p90 35, max 62); RELAXED npmi_mip_APC>0.10 7,210 edges, 537/600 UTR (median 8, max 58) and 298/300 protein.",
+   "interactions": [
+    "tier toggle",
+    "sort",
+    "expand a row for the partner's top features",
+    "click -> the pair page"
+   ],
+   "library": "dash-ag-grid / TanStack Table",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "This is the half of R2 that no other unit can supply. The two tiers nest exactly (every passing pair has npmi_mip_APC >= 0.1001), so the toggle is a clean superset relation rather than two incompatible analyses.",
+   "precompute_needed": "Yes \u2014 pre-filter to passes_phylo_filter OR npmi_mip_APC>0.1 (7,210 rows, ~0.74 MB) and index by both endpoints."
+  },
+  {
+   "id": "R2-031",
+   "name": "Four-gate bullet chart per partner",
+   "what_it_shows": "Each of the four phylogenetic-independence conditions for one association, as a value against its threshold rather than a pass/fail boolean.",
+   "encoding": "Four compact bullet bars: clade_concentration (< 0.35), n_indep_clades (>= 8), npmi_mip_APC (> 0.10), co_count (>= 10). Value marker, threshold tick, pass tint. frac_co_ZNF shown as a fifth read-only bar on a 0-0.5 scale.",
+   "data_source": "protein_utr_FINAL_scores.csv / results/phylo_corrected_candidates.csv. MEASURED over the 2,620 passing edges: n_indep_clades min 8 / median 13 / max 23; clade_concentration mean 0.265, none above 0.50; frac_co_ZNF max 0.400 with only 11 edges above 0.30; n_indep_families median 38, max 143.",
+   "interactions": [
+    "hover -> the condition stated verbatim from MODULES_REPORT.md and what it controls for"
+   ],
+   "library": "none (CSS bars \u2014 must render inside table cells)",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The brief asks specifically how to show that an association survived or failed the filter. A boolean hides that some passing edges clear every threshold comfortably while others scrape through at exactly 8 clades. Showing the margin is what makes the filter legible as evidence rather than as a rubber stamp.",
+   "precompute_needed": "No \u2014 the columns are already in the edge table."
+  },
+  {
+   "id": "R2-032",
+   "name": "Gate-failure diagnostic for the empty partner state",
+   "what_it_shows": "For a cluster with no partner passing the filter, WHICH specific condition its strongest candidate failed \u2014 not a generic 'no results'.",
+   "encoding": "Card naming the best sub-threshold partner, with the same four bullet bars, the failing bars in vermillion, and a sentence: 'this cluster's strongest association fails on clade concentration (0.61, threshold <0.35) \u2014 the co-occurrence is concentrated in a single protein family'.",
+   "data_source": "protein_utr_FINAL_scores.csv, best row by npmi_mip_APC among the cluster's non-passing pairs. MEASURED across the 282 UTR clusters with no strict partner, the best sub-threshold pair fails on: clade_concentration>=0.35 in 270/282 (95.7%), n_indep_clades<8 in 155/282 (55.0%), npmi<=0.10 in 63/282 (22.3%), co_count<10 in 16/282 (5.7%). Gates failed simultaneously: 1 gate 93 clusters, 2 gates 160, 3 gates 25, 4 gates 4.",
+   "interactions": [
+    "'show all sub-threshold partners' -> greyed list",
+    "link to methods explaining clade concentration"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "282 of 600 UTR clusters and 99 of 300 protein clusters land on this state \u2014 it is the modal experience on the RNA side, not an edge case. And it can be made specific: because 95.7% fail on clade concentration, the honest message is almost always 'this association exists but is confined to one protein family', which is a scientific finding. No design proposed anything beyond a generic empty state.",
+   "precompute_needed": "Yes \u2014 the best sub-threshold partner and its failing-gate vector per cluster, one row per cluster."
+  },
+  {
+   "id": "R2-033",
+   "name": "Sub-threshold (near-miss) partner list",
+   "what_it_shows": "Partners that did not pass, ranked, with their failing gates marked \u2014 so the reader sees the actual evidence landscape rather than a curated subset.",
+   "encoding": "Greyed table below the passing partners, each row tagged with which gates it failed; a persistent 'below threshold' label on the section.",
+   "data_source": "protein_utr_FINAL_scores.csv non-passing rows for this cluster. Note the corpus threshold counts: npmi_mip_APC>0.05 admits 21,873 edges and lights up all 600 UTR clusters with a median of 33 partners \u2014 which is why 0.05 must not be offered as a default tier.",
+   "interactions": [
+    "expand/collapse",
+    "sort",
+    "filter to 'failed exactly one gate'"
+   ],
+   "library": "dash-ag-grid / TanStack Table",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Hiding non-passing associations makes the filter look like a curation step rather than a measurement. Showing them greyed, with the reason, demonstrates the filter is doing work \u2014 which is the same argument the RAW_top30 verdict table makes globally, applied locally.",
+   "precompute_needed": "Yes \u2014 cap at the top ~25 sub-threshold partners per cluster to bound the payload."
+  },
+  {
+   "id": "R2-034",
+   "name": "Partner protein-feature roll-up",
+   "what_it_shows": "Across all of a UTR cluster's partners, which protein features recur \u2014 the one-glance answer to 'what kind of protein does this RNA motif travel with'.",
+   "encoding": "Horizontal bars of InterPro/MobiDB terms, each weighted by how many partners carry it and annotated with the best fold, with the contributing partner ids on hover.",
+   "data_source": "Join of the cluster's partner list to cluster_term_enrichment.csv.gz rows where region=='protein' and the significance gate passes. MEASURED: 2,614 of 2,620 gated edges (99.8%) have a protein partner carrying at least one FDR<0.05 term, so this panel is substantive on essentially every UTR cluster that has any partner.",
+   "interactions": [
+    "click a bar -> the partners contributing it",
+    "hover -> fold, k, n, FDR per contributing partner"
+   ],
+   "library": "custom SVG or Plotly go.Bar",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "This is the strong direction of the data and the most direct rendering of the requirement's exact words. It contrasts sharply with the UTR side, where only 45.0% of gated edges have any RBP/miRNA term \u2014 so leading a UTR cluster page with its partners' protein features rather than its own RBP annotation follows the evidence.",
+   "precompute_needed": "Yes \u2014 the roll-up per cluster, since it is a join across two large tables."
+  },
+  {
+   "id": "R2-035",
+   "name": "Partner ego graph",
+   "what_it_shows": "This cluster's immediate neighbourhood in the 519-node association graph, giving spatial context before the reader opens the full network.",
+   "encoding": "Small bipartite fan: focal node centred, partners arrayed on one side, edge width = phylo_corrected_score, node fill = module colour, shape = region.",
+   "data_source": "results/phylo_corrected_candidates.csv filtered to rows touching this cluster; node positions from the build-time frozen layout; modules.json for colour.",
+   "interactions": [
+    "click a partner node -> that cluster",
+    "'open in network' preserving focus",
+    "toggle to include sub-threshold partners as dashed stubs"
+   ],
+   "library": "d3-force (build-time) / Plotly go.Scatter",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Partner counts are UI-friendly (median 5, max 62 protein-side), so an ego graph is legible where the full graph is not, and it gives the reader a spatial handle before committing to R3. It is also the natural place to show that a partner is cross-module.",
+   "precompute_needed": "Yes \u2014 reuse the frozen network layout so the ego view and the full view agree."
+  },
+  {
+   "id": "R2-036",
+   "name": "Local raw-NPMI versus APC-corrected scatter",
+   "what_it_shows": "What the average-product correction did to THIS cluster's partner ranking \u2014 which candidates were promoted and which were deflated.",
+   "encoding": "Small scatter, x = npmi_raw, y = npmi_mip_APC, one point per candidate partner, passing pairs coloured, a y=x reference line; points far below the line are the promiscuity-deflated ones.",
+   "data_source": "protein_utr_FINAL_scores.csv npmi_raw and npmi_mip_APC for this cluster's 300 or 600 candidate partners. MEASURED: corpus-wide Spearman between the two is 0.981, and APC changes the #1 partner for 126 of 600 UTR clusters (21.0%). npmi_raw corpus range -0.739 to 0.901.",
+   "interactions": [
+    "hover -> both values and the rank change",
+    "click -> the pair page"
+   ],
+   "library": "Plotly go.Scattergl or custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "It localises a global methods claim to the cluster in front of the reader. Priced honestly as 'nice' rather than 'must' precisely because I measured its effect: at Spearman 0.981 APC is a modest reranker, and the real work is done by the clade-concentration gate. Overselling this panel would misattribute the correction that matters.",
+   "precompute_needed": "No \u2014 both columns are in the already-loaded edge slice."
+  },
+  {
+   "id": "R2-037",
+   "name": "Partner-count context chip",
+   "what_it_shows": "How this cluster's number of surviving partners compares to other clusters of its region.",
+   "encoding": "Chip reading '5 partners \u2014 p52 of 3'UTR clusters', with a mini distribution on hover.",
+   "data_source": "Partner counts per cluster from protein_utr_FINAL_scores.csv at each tier. MEASURED strict-tier distributions: UTR median 5, p90 23, max 39; protein median 8, p90 35, max 62.",
+   "interactions": [
+    "hover -> the region's partner-count histogram with this cluster marked"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Five partners means something different for a UTR cluster (median 5) than for a protein cluster (median 8), and readers cannot be expected to hold those baselines. One chip removes a systematic misreading.",
+   "precompute_needed": "Yes \u2014 per-region partner-count quantiles."
+  },
+  {
+   "id": "R2-038",
+   "name": "Consensus-pair drill-down",
+   "what_it_shows": "Which specific consensus strings on each side carry a cluster-level association \u2014 the finest-grained evidence available for a partner.",
+   "encoding": "Expandable sub-table under a partner row: both consensus in mono, their coverages as bars, carriers, and the consensus-level co_count, npmi_mip_APC and n_indep_clades.",
+   "data_source": ".../intermediate/consensus_pair_scores.csv.gz (49,547 rows x 22 cols: p_cid, u_cid, p_cluster, u_cluster, module, p_consensus, u_consensus, p_coverage, u_coverage, p_carriers, u_carriers, co_count, npmi_raw, npmi_mip_APC, n_indep_clades, clade_concentration, frac_co_ZNF, passes_phylo_filter, phylo_corrected_score, cl_npmi_mip_APC, cl_passes, cl_n_indep_clades). MEASURED: 1,430 of 2,620 gated edges (54.6%) have at least one consensus-pair row, but only 19 of 318 UTR clusters have NO consensus pair on ANY of their strict partners \u2014 so at the cluster level coverage is 94%.",
+   "interactions": [
+    "expand a partner row",
+    "sort consensus pairs by npmi_mip_APC",
+    "click -> the carriers of that specific consensus pair"
+   ],
+   "library": "dash-ag-grid / TanStack Table",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the most scientifically informative drill-down in the whole portal, and my per-cluster measurement reframes it: the per-edge figure of 54.6% sounds like a coin flip, but from a cluster page the panel is populated 94% of the time. That difference is the argument for putting it here rather than only on a pair page.",
+   "precompute_needed": "Yes \u2014 top 3 consensus pairs per (p_cluster, u_cluster), ~3,599 rows."
+  },
+  {
+   "id": "R2-039",
+   "name": "Consensus-pair fallback tiering",
+   "what_it_shows": "Never an empty consensus panel: tier (a) the consensus PAIR where it exists; tier (b) each endpoint's own consensus list, labelled 'consensus per cluster'; tier (c) the most frequent literal member strings on each side.",
+   "encoding": "The panel header names the tier in words rather than implying tier (a).",
+   "data_source": "(a) consensus_pair_scores.csv.gz; (b) consensus_meta.csv (451 clusters); (c) motif_full_annotations.parquet motifs value_counts.",
+   "interactions": [
+    "hover the tier label -> why this edge has no consensus pair (all 757 cross-module edges have none, by construction of the consensus association step)"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Zero cross-module edges have a consensus pair, and cross-module edges include the M1-M5 link the manuscript itself highlights. Showing an empty panel there would make the paper's own headline cross-module observation look unsupported.",
+   "precompute_needed": "No \u2014 a selection rule over existing artifacts."
+  },
+  {
+   "id": "R2-040",
+   "name": "Shared-carrier gene list per partner",
+   "what_it_shows": "The actual genes carrying both this cluster's motif and the partner's \u2014 the concrete handoff from R2 back to R1.",
+   "encoding": "Expandable chip list with a count, each chip a gene symbol linking to that gene's transcript view at one of its instances.",
+   "data_source": ".../intermediate/consensus_presence.npz \u2014 Pc bool (18,068 x 275), Uc bool (18,068 x 951), aligned arrays p_cid, u_cid, p_cluster, u_cluster, p_consensus, u_consensus, genes (RefSeq ids). A bitwise AND of one Pc column and one Uc column yields the list. Cluster-level co-carriers come directly from co_count in the edge table.",
+   "interactions": [
+    "expand",
+    "click a gene -> its transcript view at that motif",
+    "download CSV"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "co_count is an abstraction; the gene list is the evidence. It is also the only route by which a reader can check an association against their own knowledge, which is what an expert audience will actually do.",
+   "precompute_needed": "Yes \u2014 precompute the AND for displayed edges at build time so no numpy runs per request."
+  },
+  {
+   "id": "R2-041",
+   "name": "Carrier resolution selector",
+   "what_it_shows": "That 'genes carrying this motif' has three different answers depending on resolution \u2014 module, cluster, or consensus \u2014 with the active level always named.",
+   "encoding": "Three-state segmented control with the count printed inside each option, plus a persistent caption naming the level that produced the number on screen.",
+   "data_source": "Module level: .../03.interacting_modules/module_gene_members/module_gene_index.csv. Cluster level: motif_full_annotations.parquet gene_symbol per cluster. Consensus level: consensus_presence.npz. The same question returns roughly 1,562 / 175 / 51 genes for the prot_0040 x utr5_0004 case.",
+   "interactions": [
+    "switch -> every gene count and list on the page updates and relabels"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the single most effective anti-misreading control available, because the three numbers differ by more than an order of magnitude and nothing in the underlying files signals which one a given panel used. Making resolution an explicit, visible choice prevents the most likely way a reader quotes a wrong number.",
+   "precompute_needed": "Yes \u2014 carrier sets at all three levels for the displayed cluster and its partners."
+  },
+  {
+   "id": "R2-042",
+   "name": "Carrier tier badge (A / literal / fuzzy)",
+   "what_it_shows": "In which of three senses a gene 'carries' the motif: tier A (the called instance is the literal motif at the called position), literal-only (the string occurs but was not called there), or fuzzy consensus carrier (PWM match above threshold).",
+   "encoding": "Three-state chip on each carrier row with a legend and counts per tier.",
+   "data_source": "Classification logic in .../motif_pair_network/m4_motif_examples/find_m4_examples.py, generalised across modules; per-instance data from motif_full_annotations.parquet, fuzzy carriers from consensus_presence.npz. The M4 audit found only 53 of 106 literal+carrier genes were tier A.",
+   "interactions": [
+    "filter the carrier list by tier",
+    "hover -> the tier definition"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "L",
+   "priority": "should",
+   "why_it_earns_its_place": "Without it, a reader clicks a carrier gene from R2 and lands on an R1 page with no visible highlight for the motif that put the gene on the list \u2014 a contradiction between two views of the same portal. The tier badge is what makes that expected instead of alarming.",
+   "precompute_needed": "Yes \u2014 new computation generalising the M4 script across all six modules."
+  },
+  {
+   "id": "R2-043",
+   "name": "Cross-module partner flag",
+   "what_it_shows": "Which of a cluster's partners sit in a different module.",
+   "encoding": "A small module chip on each partner row; when the partner's module differs, the chip is outlined rather than filled and the row carries a 'cross-module' tag.",
+   "data_source": "modules.json expanded to a cluster->module map, applied to both endpoints of each edge. 757 of 2,620 gated edges (28.9%) are cross-module; 3 have an endpoint in no module.",
+   "interactions": [
+    "filter to cross-module partners only",
+    "click -> the meta-module view for that pair"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Nearly 29% of associations cross module boundaries, and the manuscript treats one such block as a finding. If the cluster page presents partners without module context, the reader cannot tell a within-programme association from a bridging one.",
+   "precompute_needed": "Yes \u2014 module ids joined onto the edge table."
+  },
+  {
+   "id": "R2-044",
+   "name": "Enrichment dot plot",
+   "what_it_shows": "The cluster's enriched annotation terms across all ten sources, ranked by effect size with significance encoded rather than filtered away.",
+   "encoding": "Dot rows: y = term (display string), x = fold enrichment on a log axis, dot size = k, dot colour = source. Non-significant terms rendered hollow and greyed rather than omitted. A vertical rule at fold = 1.",
+   "data_source": ".../intermediate/cluster_term_enrichment.csv.gz \u2014 260,572 rows x 18 cols covering ALL 900 clusters (cluster, region, source, term, k, n, K, N, fold, p, neg_log10_p, fdr_cluster, p_cmh, or_mh, fdr_global, fdr_cmh_cluster, display, informative). MEASURED source rows: InterPro 143,254; eCLIP 38,097; PAR-CLIP 23,270; MobiDB 16,028; miR 15,798; iCLIP-P 12,679; iCLIP-C 9,519; IDPO 1,187; ELM 694; SignalP 46. fold on significant rows: median 21.5, p90 43.2, p99 100.2, max 387.6.",
+   "interactions": [
+    "source filter chips with counts",
+    "significance gate selector",
+    "hover -> the contingency tooltip",
+    "click -> external deep link"
+   ],
+   "library": "d3-scale + custom SVG, or Plotly go.Scatter",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the 'annotations on the motif' half of the requirement, it covers all 900 clusters, and it is the only unit that shows effect size and significance simultaneously \u2014 which is what stops a reader from ranking terms by p-value alone.",
+   "precompute_needed": "Yes \u2014 pre-slice per cluster after dedup, capped at ~20-40 rows. Terms per cluster after the triple gate and dedup: median 25, p90 91, max 148."
+  },
+  {
+   "id": "R2-045",
+   "name": "Significance gate selector (single versus triple FDR)",
+   "what_it_shows": "Which FDR criterion is being applied, with the resulting term and cluster counts \u2014 because the authors' own script mandates a triple gate that is far stricter than fdr_cluster alone.",
+   "encoding": "Segmented control: 'fdr_cluster < 0.05' / 'all three FDRs < 0.05 (as published)'. Each option prints how many terms survive for THIS cluster and how many clusters corpus-wide have any term at that gate.",
+   "data_source": "cluster_term_enrichment.csv.gz fdr_cluster, fdr_global, fdr_cmh_cluster. MEASURED: fdr_cluster<0.05 gives 25,750 rows over 463 clusters (protein 297, utr3 123, utr5 43). The TRIPLE gate gives 14,525 rows over only 401 clusters (protein 297, utr3 73, utr5 31). The RNA side is where the difference lands: UTR clusters with any displayable term drop from 166 to 104 of 600.",
+   "interactions": [
+    "switch gate -> the dot plot and table re-filter",
+    "hover -> what each FDR flavour corrects over"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "MEASUREMENT NO DESIGN HAD: the gate that 10_cluster_term_enrichment.py mandates for display costs 62 clusters of coverage, almost all on the RNA side. Two designs specified the triple gate and two specified fdr_cluster alone, without either knowing the price. Making it an explicit control with the counts attached is the only honest resolution, and it tells the reader that 'no significant term' is a statement about a threshold, not about the cluster.",
+   "precompute_needed": "Yes \u2014 carry all three FDR columns into the cluster shard so the toggle works client-side."
+  },
+  {
+   "id": "R2-046",
+   "name": "Enrichment table with full contingency",
+   "what_it_shows": "The same terms as a sortable, exportable table with every statistic, so any claim on the page can be audited.",
+   "encoding": "Columns: term, source, k/n, K/N, fold, or_mh, p, fdr_cluster, fdr_global, fdr_cmh_cluster, deep link. Significance shown as a pill using the active gate.",
+   "data_source": "cluster_term_enrichment.csv.gz, per-cluster slice. The universe is gene-level: N = 17,831 (protein) / 17,761 (utr3) / 17,045 (utr5).",
+   "interactions": [
+    "sort any column",
+    "filter by source",
+    "CSV export"
+   ],
+   "library": "dash-ag-grid / TanStack Table",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A dot plot is a summary; an expert reader checking a specific claim needs the numbers. Export is what makes the portal citable rather than merely viewable.",
+   "precompute_needed": "No beyond the per-cluster slice."
+  },
+  {
+   "id": "R2-047",
+   "name": "Contingency 2x2 mosaic tooltip",
+   "what_it_shows": "The four counts behind an enrichment fold, so the effect size is auditable at a glance.",
+   "encoding": "A 2x2 mosaic whose cell areas are proportional to k, n-k, K-k, N-n-K+k, with all four numbers printed and the universe named.",
+   "data_source": "cluster_term_enrichment.csv.gz columns k, n, K, N.",
+   "interactions": [
+    "hover any enrichment row or dot",
+    "pin open with a click"
+   ],
+   "library": "custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Fold enrichment ranges to 387x in this table, and a large fold on k=2 genes is a different claim from the same fold on k=68. The mosaic makes small-k terms visibly small, which no sorted column does.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-048",
+   "name": "Non-finite and zero-value guard",
+   "what_it_shows": "Nothing directly \u2014 it is the rule that prevents the enrichment panels from silently breaking or lying.",
+   "encoding": "or_mh values of infinity render as a capped marker with an explicit '>' glyph and the raw value in the tooltip, never as a point at the axis maximum. p == 0 rows use the precomputed neg_log10_p column and are annotated as 'below floating-point resolution' rather than plotted at infinity.",
+   "data_source": "MEASURED IN cluster_term_enrichment.csv.gz: or_mh contains 47,861 infinite values (18.4% of all rows) and ranges to 2.35e4 among finite ones; p == 0 in 11 rows, fdr_cluster == 0 in 11, fdr_global == 0 in 11, p_cmh == 0 in 55, fdr_cmh_cluster == 0 in 55; neg_log10_p is finite throughout with a maximum of 447.79 and 166 rows at exactly 0. fold is clean (no inf, no nan, min 0.00208, max 387.6).",
+   "interactions": [
+    "hover a capped marker -> 'odds ratio is infinite (zero counts in one cell); fold enrichment is shown instead'"
+   ],
+   "library": "none",
+   "render_tech": "hybrid",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "No design mentioned this and every one of them proposes plotting or_mh or a -log10 axis. Nearly a fifth of the enrichment table would either crash a log scale or, worse, silently clamp to the axis maximum and appear as the strongest evidence on the page. This is the difference between a chart that is wrong and one that is right.",
+   "precompute_needed": "Yes \u2014 sanitise at build time and store an explicit is_capped flag rather than relying on render-time coercion."
+  },
+  {
+   "id": "R2-049",
+   "name": "Display-string de-duplication rule",
+   "what_it_shows": "Also invisible when correct: collapsing provenance-variant terms that render identically.",
+   "encoding": "One row per distinct displayed term, with a small 'n sources' marker where variants were merged, expandable to the underlying term keys.",
+   "data_source": "MEASURED: (cluster, display) is duplicated in 17,056 of 232,312 groups. De-duplicating on (cluster, source, display) leaves 3,865 collisions and ALL of them are MobiDB \u2014 e.g. prot_0000 shows 'binding mode context dependent (derived)' twice from derived-binding_mode_context_dependent-mobi and -priority, with identical k, n, fold and FDR. (cluster, source, term) is verified unique (max group size 1).",
+   "interactions": [
+    "expand a merged row -> the contributing term keys"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Two designs specified dedup on (cluster, source, display) believing it sufficient. It is not \u2014 3,865 groups survive, all MobiDB provenance suffixes, so prot_0072's top terms still repeat 'phase separation (curated)'. The correct rule is dedup on (cluster, source, display) keeping min fdr_cluster, which collapses these correctly because the variants carry identical statistics; the safe join key remains term.",
+   "precompute_needed": "Yes \u2014 apply at build time, not in the UI."
+  },
+  {
+   "id": "R2-050",
+   "name": "Source filter chips with per-source counts",
+   "what_it_shows": "Which annotation databases contributed terms to this cluster, and how many each contributed.",
+   "encoding": "Toggle chips, one per source, coloured by layer (RNA #2E7D9A / protein #9C6B1E), each with a count; sources with zero rows for this cluster shown greyed rather than hidden.",
+   "data_source": "cluster_term_enrichment.csv.gz source column per cluster; layer assignment from sequence_annotation/annotation_coverage_stats.json.",
+   "interactions": [
+    "toggle a source -> filters dot plot and table",
+    "hover a greyed chip -> 'this database does not apply to 3'UTR motifs'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Showing a greyed-out source is more informative than omitting it: it distinguishes 'tested and found nothing' from 'not applicable to this region', which is exactly the distinction the MobiDB region leak destroyed upstream.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-051",
+   "name": "Per-source coverage bar (denominator honesty)",
+   "what_it_shows": "What fraction of this cluster's instances carry any annotation from each source, with the correct denominator \u2014 so a reader never reads MobiDB's 87.2% as applying to UTR motifs.",
+   "encoding": "Thin bar per source with the numerator, denominator and the `applies` scope printed.",
+   "data_source": "sequence_annotation/annotation_coverage_stats.json (display, source, layer, applies, denominator, n_annotated, pct) shipped verbatim, combined with per-cluster instance fractions computed from motif_full_annotations.parquet. Corpus figures: RBP union 51.358% of 634,749 UTR motifs; miRNA 4.698% of 515,752 utr3; InterPro 67.758%, UniProt 90.201%, MobiDB 87.206%, IDPO 0.750%, ELM 0.313%, SignalP 0.117% of 254,466 protein motifs.",
+   "interactions": [
+    "hover -> the exact `applies` rule and the overlap semantics for that database"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Annotation coverage in this dataset ranges from 90% to 0.1%. A term from SignalP (298 motifs corpus-wide) and a term from UniProt (229,532) are not comparable evidence, and nothing else on the page communicates that.",
+   "precompute_needed": "Yes \u2014 per-cluster per-source instance fractions."
+  },
+  {
+   "id": "R2-052",
+   "name": "Instance-level annotation frequency bars",
+   "what_it_shows": "What fraction of this cluster's own instances carry each RBP, miRNA family or InterPro term \u2014 the always-computable fallback that needs no enrichment test.",
+   "encoding": "Ranked horizontal bars with both the raw instance count and the percentage, headed 'frequency among this cluster's instances \u2014 not an enrichment test'.",
+   "data_source": "Explode of the four RBP list columns / mirna_annotations_targetscan / interpro_annotations in motif_full_annotations.parquet, grouped by motif_cluster. MEASURED per-cluster any-annotation fraction: UTR clusters any-RBP median 0.522 (p10 0.292, p90 0.725, min 0.030); protein clusters any-InterPro median 0.728 (p10 0.485, min 0.229). Distinct eCLIP RBPs per UTR cluster: median 59.5, max 125, all 600 covered.",
+   "interactions": [
+    "click a bar -> filters the member table to instances carrying that annotation",
+    "switch between the four CLIP methods"
+   ],
+   "library": "custom SVG or Plotly go.Bar",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "437 clusters have no significant enrichment term. This panel is populated for every cluster and answers a legitimate question ('what is actually on these motifs?') that the enrichment test does not. It must be labelled as frequency, not enrichment, because the two are constantly confused.",
+   "precompute_needed": "Yes \u2014 one groupby per cluster into the cluster shard."
+  },
+  {
+   "id": "R2-053",
+   "name": "Third-tier annotation fallback",
+   "what_it_shows": "For clusters where BOTH enrichment and instance-frequency are thin, the remaining honest evidence: composition, positional bias, size, and any annotation inherited from the cluster's partners.",
+   "encoding": "A card that assembles whatever exists, explicitly framed as 'no direct annotation evidence; here is what is known about this cluster'.",
+   "data_source": "Composition and position from the units above; partner-inherited features from the roll-up. MEASURED NECESSITY: instance-level RBP fraction is below 0.10 for 9 of 600 UTR clusters, and the manuscript-featured utr3_0215 (0.074) and utr5_0096 (0.057) are both among them \u2014 the same two clusters that also have zero terms at FDR<0.05.",
+   "interactions": [
+    "link to the partner table, which is where their evidence actually lives"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "MEASUREMENT THAT CHANGES THE DESIGN: every design assumed instance-frequency was a universal safety net under enrichment. It is not. The two clusters the manuscript leans on hardest for M4 fall through both tiers, so a third tier is required \u2014 and for exactly those clusters the honest answer is that their evidence is their protein partners, not their own annotation.",
+   "precompute_needed": "Yes \u2014 a per-cluster evidence-depth score deciding which tier to render."
+  },
+  {
+   "id": "R2-054",
+   "name": "No-significant-term banner",
+   "what_it_shows": "The explicit state for clusters with no term passing the active gate, with the population count and what is shown instead.",
+   "encoding": "Inline notice above the greyed dot plot: 'No term passes the triple FDR gate for this cluster. 499 of 900 clusters are in this state. Showing top terms by fold with their FDR \u2014 all non-significant.'",
+   "data_source": "Per-cluster significant-term counts at both gates from cluster_term_enrichment.csv.gz. MEASURED: 437 clusters have no term at fdr_cluster<0.05; 499 have none under the triple gate.",
+   "interactions": [
+    "link to methods on gene-level hypergeometric testing and the universe size"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "This is the modal state on the RNA side. Stating the population count reframes it from 'this page failed' to 'this is a property of the analysis', which is both true and much better reading.",
+   "precompute_needed": "Yes \u2014 per-cluster counts at each gate."
+  },
+  {
+   "id": "R2-055",
+   "name": "Effect-size versus significance quadrant",
+   "what_it_shows": "The joint distribution of fold and FDR for this cluster's terms, separating strong-and-significant from strong-but-underpowered.",
+   "encoding": "Scatter, x = log fold, y = neg_log10_p, point size = k, with the FDR threshold as a horizontal rule and a shaded low-k region marking terms too small to trust.",
+   "data_source": "cluster_term_enrichment.csv.gz fold, neg_log10_p (precomputed and finite \u2014 max 447.79), k, fdr_cluster.",
+   "interactions": [
+    "brush a quadrant -> filters the table",
+    "hover -> the contingency mosaic"
+   ],
+   "library": "d3-scale + custom SVG, or Plotly go.Scattergl",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "A dot plot sorted by fold and a table sorted by FDR give two different top-10s. The quadrant shows why, and it uses neg_log10_p, which is the only significance column in this file guaranteed finite.",
+   "precompute_needed": "No beyond the cluster slice."
+  },
+  {
+   "id": "R2-056",
+   "name": "Term deep-link chips with GO context",
+   "what_it_shows": "Enrichment terms as links to their source database, where a stable identifier exists.",
+   "encoding": "Chip with the term, an external-link glyph when linkable, and a plain chip when not; GO terms shown on hover for InterPro.",
+   "data_source": "MEASURED LINKABILITY: InterPro term names resolve to accessions for 100.0% of the 15,216 distinct InterPro terms via .../intermediate/interpro_entry_map.csv (ipr, name, type, go_ids, go_names; 17,814 entries, 39.0% carrying GO ids; types family 8,004 / domain 7,495 / homologous_superfamily 1,527 / conserved_site 494 / repeat 139 / active_site 90 / binding_site 56 / ptm 9). NO stable id exists for eCLIP (150 names), PAR-CLIP (57), iCLIP-P (32), iCLIP-C (22), miR (219 TargetScan family strings), MobiDB (87 provenance keys), ELM (156 site names, 69 of which map to multiple ELM classes), IDPO (97) or SignalP (2).",
+   "interactions": [
+    "click a linkable chip -> interpro.ebi.ac.uk/entry/InterPro/<ipr>",
+    "hover -> entry type and GO names"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "InterPro is 55% of all enrichment rows and links perfectly, so the payoff is large and the join is verified exact. Equally important is not faking the rest: a chip that looks clickable and searches a database by free text will send readers to wrong entries, so the absence of a link is itself information.",
+   "precompute_needed": "Yes \u2014 resolve term names to accessions at build time and ship interpro_entry_map as a lookup."
+  },
+  {
+   "id": "R2-057",
+   "name": "RBP method-agreement column",
+   "what_it_shows": "For RBP terms, how many of the four CLIP methods support the call \u2014 a free confidence axis.",
+   "encoding": "Four small squares per RBP row, filled per contributing method, with a '3/4' caption.",
+   "data_source": "The four separate list columns in motif_full_annotations.parquet and the per-source rows in cluster_term_enrichment.csv.gz. Corpus method distribution over 634,749 UTR motifs: 0 methods 308,753 / 1 method 144,288 / 2 methods 95,096 / 3 methods 57,474 / all 4 methods 29,138. Only 4 of 203 RBP names appear in all four methods; 166 appear in exactly one.",
+   "interactions": [
+    "hover -> which methods and their peak counts",
+    "filter to multi-method RBPs only"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It explains why PAR-CLIP-only RBPs like ATXN2 (115,724 motifs) and ELAVL1 (93,426) dominate raw counts, and it turns an artefact of method coverage into a legible confidence signal at no extra data cost.",
+   "precompute_needed": "Yes \u2014 per-cluster per-RBP method vectors, plus a ~15-row alias map (U2AF65->U2AF2, TDP43->TARDBP, UNR->CSDE1, IMP3->IGF2BP3, HNRNPH->HNRNPH1) so the facet does not double-count."
+  },
+  {
+   "id": "R2-058",
+   "name": "Evidence-class badge (measured versus inferred)",
+   "what_it_shows": "Whether an annotation shown on this cluster is an enrichment measured in this dataset or a resemblance the manuscript proposes from the literature.",
+   "encoding": "Two badge styles: 'enriched here (fold, FDR)' versus 'proposed in the manuscript \u2014 not an enrichment in this data', the latter carrying the paper's own hedge verbatim.",
+   "data_source": "Measured class from cluster_term_enrichment.csv.gz. Inferred class from the manuscript text: utr5_0096 ~ SRSF3/4 and utr3_0215 ~ PTBP have NO row naming SRSF or PTBP in cluster_term_labels.csv, and I confirmed neither cluster has any term at FDR<0.05.",
+   "interactions": [
+    "hover -> the manuscript sentence and its hedge ('their direct binding and function in this module remain to be experimentally established')"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The portal will be read next to the paper. If utr3_0215's page says 'PTBP' in the same visual language as a 25x InterPro enrichment, the portal manufactures evidence the manuscript explicitly declined to claim. Two badge classes cost nothing and protect the paper.",
+   "precompute_needed": "Yes \u2014 a small hand-curated table of manuscript-proposed attributions per cluster."
+  },
+  {
+   "id": "R2-059",
+   "name": "Enrichment universe note",
+   "what_it_shows": "That enrichment here is gene-level against a fixed background, not instance-level.",
+   "encoding": "One muted line under the panel: 'gene-level hypergeometric; universe N = 17,761 3'UTR-motif genes'.",
+   "data_source": "cluster_term_enrichment.csv.gz N column: 17,831 protein / 17,761 utr3 / 17,045 utr5.",
+   "interactions": [
+    "hover -> why the universe differs by region"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The page shows instance counts everywhere else, so a k of 22 in the enrichment table will be read as 22 instances rather than 22 genes. One line prevents a systematic misreading of every fold on the page.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-060",
+   "name": "Annotation-absent state",
+   "what_it_shows": "For instances and clusters with no annotation from any source, an explicit statement with the corpus rate.",
+   "encoding": "Muted card: 'no annotation from any source overlaps this motif; 36.1% of all motif instances are in this state'.",
+   "data_source": "annotation_coverage_stats.json any-annotation rate 63.888%; per-instance union computed from the 11 annotation columns after the region mask.",
+   "interactions": [
+    "link to the coverage page"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Over a third of instances have no annotation. Presented as a blank panel this reads as a bug; presented with the rate it reads as a known coverage limit, which is what it is.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-061",
+   "name": "Member instance table",
+   "what_it_shows": "Every instance of the cluster with its gene, transcript, coordinates, sequence and scores.",
+   "encoding": "Virtualised rows: gene, transcript, region, start, end, length, sequence (RNA alphabet for UTR), motif_score, entropy, pLDDT, annotation count. The motif shown with a few residues of flanking context, greyed.",
+   "data_source": "motif_full_annotations.parquet filtered on motif_cluster; flanks sliced from the deduplicated GRCh37 sequence parquet with the verified rule seq[motif_start : motif_end + 1]. Cluster sizes: min 218, median 920, max 5,755 \u2014 so virtualisation is required but paging is optional.",
+   "interactions": [
+    "sort by any column",
+    "filter to annotated-only or to a positional band",
+    "row click -> the transcript view at that exact motif",
+    "CSV export"
+   ],
+   "library": "dash-ag-grid / TanStack Table + Virtual",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the ground truth under every aggregate on the page and the primary route back to R1. Without it a cluster is an abstraction the reader cannot check.",
+   "precompute_needed": "Yes \u2014 per-cluster member shards (roughly 42 MB across 900 clusters)."
+  },
+  {
+   "id": "R2-062",
+   "name": "Flanked sequence context strip",
+   "what_it_shows": "A handful of member instances shown in their local sequence context, aligned so the motif starts at a fixed column.",
+   "encoding": "Mono rows, motif upper-case and tinted, flanks lower-case grey, space-padded to a fixed motif start column.",
+   "data_source": "Sequences from the deduplicated GRCh37 parquet; the padding and slicing logic is already implemented in .../examples_of_each_gene/examples_lib.py context(sid, cl, flank), which uses the inclusive convention s[st:en+1].",
+   "interactions": [
+    "'more examples'",
+    "click a row -> the transcript view",
+    "toggle flank width"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the manuscript's own Fig 4a idiom, so the portal matches the paper's visual language, and it shows sequence context that neither the logo nor the table conveys. Reusing examples_lib avoids re-deriving the coordinate handling that is the most likely silent bug.",
+   "precompute_needed": "No \u2014 computed on demand from the loaded shard."
+  },
+  {
+   "id": "R2-063",
+   "name": "Carrier gene table",
+   "what_it_shows": "The distinct genes carrying this cluster, with how many instances each contributes and their module memberships.",
+   "encoding": "Virtualised table: gene, n instances in this cluster, transcript, modules, trusted GO term count.",
+   "data_source": "motif_full_annotations.parquet gene_symbol within cluster (median 565 genes, max 4,532); module membership from .../module_gene_members/module_gene_index.csv (12,345 rows; refseq_ids joins to sequence_id at 100% precision).",
+   "interactions": [
+    "search",
+    "sort",
+    "'send all to the network view'",
+    "export gene list for downstream enrichment"
+   ],
+   "library": "dash-ag-grid / TanStack Table + Virtual",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The gene list is what a wet-lab reader actually takes away, and exporting it is what lets them run their own analysis rather than trusting the portal's.",
+   "precompute_needed": "Yes \u2014 distinct gene lists per cluster."
+  },
+  {
+   "id": "R2-064",
+   "name": "Curated example-gene chips",
+   "what_it_shows": "For the 37 clusters with a curated label, the manuscript's own hand-picked example genes.",
+   "encoding": "Gene chips, up to 25, marked as manuscript-selected.",
+   "data_source": ".../intermediate/cluster_term_labels.csv example_genes column \u2014 verified 65 rows over 37 clusters, semicolon-joined, up to 25 genes per cell.",
+   "interactions": [
+    "click -> transcript view"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Pre-vetted examples cost nothing and give a reader an immediate concrete entry point on the clusters the paper cares most about. Only useful for 4% of clusters, hence 'nice'.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-065",
+   "name": "Module badge and no-module explainer",
+   "what_it_shows": "Module membership where it exists, and a real explanation where it does not.",
+   "encoding": "Coloured module pill, or a grey pill reading 'not in a module' expanding to a card naming the two reasons: the cluster's pairs never passed the four-condition gate, or its Louvain community had fewer than 2 protein motifs / 2 UTR motifs / 3 edges.",
+   "data_source": "modules.json protein_motifs[]/utr_motifs[] expanded to a 513-cluster map; 387 clusters unassigned (102 protein, 251 utr3, 34 utr5). Procedure text verbatim from .../03.interacting_modules/MODULES_REPORT.md.",
+   "interactions": [
+    "click the module pill -> module view",
+    "the grey pill expands to the reason and links to the sub-threshold partner list"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "43% of clusters have no module, so this is not an exception path. Stating the specific reason turns a dead end into a result, and it is the honest answer: these clusters did not fail to be analysed, they failed a stated threshold.",
+   "precompute_needed": "Yes \u2014 the cluster->module map."
+  },
+  {
+   "id": "R2-066",
+   "name": "Co-occurrence caveat chrome",
+   "what_it_shows": "That associations shown are statistical co-occurrence across genes, not demonstrated physical interaction.",
+   "encoding": "Persistent band, non-dismissible on the partner panel, carrying one sentence and a link.",
+   "data_source": "Verbatim from .../module_gene_members/README.md ('These are statistical module memberships (motif co-occurrence), not demonstrated physical interactions.') and MODULES_REPORT.md.",
+   "interactions": [
+    "link to the paralogy explainer"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The requirement's own wording is 'how it interacts with protein features', and a page that answers that literally will be read as physical interaction unless the framing is structural. Naming the data model field 'co-occurrence' is the complementary half of this.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-067",
+   "name": "Gate specification popover",
+   "what_it_shows": "The four conditions and the edge-weight formula, quoted, wherever a gate value appears.",
+   "encoding": "Popover: clade_concentration < 0.35 AND n_indep_clades >= 8 AND npmi_mip_APC > 0.10 AND co_count >= 10; weight = MIp x (1 - clade_concentration) x log1p(n_indep_clades); 2,620 of 166,615 co-occurring pairs (1.6%) pass.",
+   "data_source": "MODULES_REPORT.md, quoted verbatim; counts verified against protein_utr_FINAL_scores.csv (180,000 rows, 166,615 with co_count>0, 2,620 passing).",
+   "interactions": [
+    "opens from any gate bullet or tier toggle"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Gate bars are meaningless without their definitions, and putting the definitions in the popover rather than a separate methods page means the reader never has to leave the evidence to understand it.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-068",
+   "name": "Glossary popovers",
+   "what_it_shows": "Inline definitions for NPMI, APC/MIp, clade concentration, coverage, carriers, pLDDT, motif_score, entropy, phylo_corrected_score, unique_motif_id.",
+   "encoding": "Dotted underline on the term; popover with the definition, the formula where one exists, and the observed range in this dataset.",
+   "data_source": "Manuscript Methods, MODULES_REPORT.md, and the measured ranges throughout this catalog.",
+   "interactions": [
+    "hover or focus",
+    "Esc to close",
+    "link to the full methods entry"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "This page carries more unfamiliar quantities per square inch than any other in the portal. Including the observed range in each definition is what makes a number interpretable on first encounter.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-069",
+   "name": "Compare-two-clusters mode",
+   "what_it_shows": "Two clusters side by side on identical axes \u2014 logos, positional histograms, composition, score distributions, partner lists and enriched terms.",
+   "encoding": "Split view with shared scales throughout and a diff column highlighting terms and partners unique to each.",
+   "data_source": "Two cluster shards plus the shared corpus reference distributions.",
+   "interactions": [
+    "pick the second cluster from search or from the context scatter",
+    "swap sides",
+    "'shared partners only' filter",
+    "export the comparison"
+   ],
+   "library": "existing units re-instantiated",
+   "render_tech": "hybrid",
+   "effort": "L",
+   "priority": "nice",
+   "why_it_earns_its_place": "The known trap that UCUCC has two distinct parent clusters (utr3_0215 and utr3_0238) which are not interchangeable is exactly the question a comparison view answers and no single-cluster page can. It is also the natural tool for someone deciding whether two k-means buckets should have been one.",
+   "precompute_needed": "No \u2014 reuses existing shards, provided every unit was built with an injectable scale."
+  },
+  {
+   "id": "R2-070",
+   "name": "Cluster export menu",
+   "what_it_shows": "Everything on the page as a file.",
+   "encoding": "Dropdown: members CSV, carrier gene list, enrichment CSV, partner table CSV, PWM in MEME format, logo SVG, positional histogram CSV, the whole cluster record as JSON.",
+   "data_source": "The loaded cluster shard; filenames stamped with the cluster id and the data snapshot version.",
+   "interactions": [
+    "exports honour the active filters and the active FDR gate",
+    "the export names the gate it used"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is what turns the view from a figure into a resource, and stamping the active gate into the filename prevents a downloaded table from being quoted under the wrong threshold later.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-071",
+   "name": "Permalink and citation block",
+   "what_it_shows": "That the current view \u2014 including tier, gate, source filters and selected consensus \u2014 is a stable, citable URL.",
+   "encoding": "Copy button plus a short citation string naming the cluster, the snapshot version and the DOI.",
+   "data_source": "Router state; snapshot version from the build manifest.",
+   "interactions": [
+    "copy link",
+    "copy citation"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The evidence a reader sees depends on which gate and tier are active, so a bare cluster URL can reproduce a different page. Encoding that state is what makes a reference honest.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-072",
+   "name": "Loading skeleton",
+   "what_it_shows": "Panel structure while a shard loads, shaped to the final layout so nothing jumps.",
+   "encoding": "Shimmer blocks matching the logo, histogram, dot plot and table geometry.",
+   "data_source": "n/a.",
+   "interactions": [
+    "none"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Cluster shards are the heaviest per-view payload in the portal (mean ~20 KB, max ~58 KB gzipped, plus the enrichment slice). Reserving geometry avoids the layout shift that makes a fast page feel slow.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-073",
+   "name": "Panel legend and encoding key",
+   "what_it_shows": "What every colour, mark and axis on the page means \u2014 source colours, region colours, module colours, hollow-versus-filled significance, the fold axis, the bits axis.",
+   "encoding": "Collapsible key drawn by the same code as the charts, so it cannot drift.",
+   "data_source": "Palette constants from .../main_figures_code/_shared/manuscript_style.py, exported to a theme file at build time.",
+   "interactions": [
+    "collapse/expand, state remembered",
+    "click a source swatch -> filters to that source"
+   ],
+   "library": "none",
+   "render_tech": "hybrid",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "This page carries at least four independent colour encodings simultaneously (source, region, module, significance). Without a key they interfere. Generating the key from the same constants also protects against the three conflicting module palettes present in the codebase.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-074",
+   "name": "Invalid-cluster and typo empty state",
+   "what_it_shows": "A cluster id that does not exist, or a near-miss, resolved rather than 404'd.",
+   "encoding": "Card with the closest valid ids, the naming convention (prefix_NNNN, prefix in prot/utr3/utr5, zero-padded to 4 digits), and the per-region ranges.",
+   "data_source": "The 900 valid ids. Verified convention: motif_cluster == f'{prefix}_{kmeans_label:04d}' with 0 mismatches across all 889,215 rows; protein uses labels 0-299, utr3 0-499, utr5 0-99.",
+   "interactions": [
+    "click a suggestion"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The id space is guessable and readers will hand-edit URLs. Stating the ranges also corrects the natural assumption that there is one global 500-label space, which there is not.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-075",
+   "name": "kmeans label crosswalk chip",
+   "what_it_shows": "The underlying kmeans_label behind the cluster id, and the warning that labels are reused across regions.",
+   "encoding": "Small mono chip 'kmeans 215 (3'UTR)' with a caution on hover.",
+   "data_source": "motif_full_annotations.parquet does not carry kmeans_label (it was dropped); .../data/identified_motifs_with_clusters.0513.parquet does. Verified: a kmeans_label appears in up to 3 clusters because labels are reused across the three regions, while each motif_cluster maps to exactly one label.",
+   "interactions": [
+    "hover -> 'label 215 also exists in the protein and 5'UTR spaces as different clusters'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Anyone cross-referencing the portal against the raw analysis will meet kmeans_label and be misled by its reuse. The chip is the cheapest place to disarm that.",
+   "precompute_needed": "Yes \u2014 carry kmeans_label from the other parquet into clusters.json."
+  },
+  {
+   "id": "R2-076",
+   "name": "Instance-in-cluster locator",
+   "what_it_shows": "Where the arriving instance sits within the cluster's own distributions \u2014 position, score, length, and whether it matches the cluster consensus.",
+   "encoding": "Markers overlaid on the positional histogram, the length histogram and the score violin, all referring to the same instance, plus a bits score against the display PWM.",
+   "data_source": "The instance row from motif_full_annotations.parquet; PWM match computed with the same coverage() definition used by the pipeline.",
+   "interactions": [
+    "toggle the marker off",
+    "'show instances most like this one'"
+   ],
+   "library": "custom SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It answers the question a reader arriving from R1 actually has \u2014 'is my motif a good example of this cluster or an outlier?' \u2014 by reusing charts already on the page for the cost of one marker each. It is also the honest way to handle a low-coverage consensus: show whether THIS instance is one of the members the consensus describes.",
+   "precompute_needed": "Partially \u2014 the per-instance PWM bits score is new computation, shared with the aligned-member strip."
+  },
+  {
+   "id": "R2-077",
+   "name": "Cluster quality summary strip",
+   "what_it_shows": "A compact, scannable summary of every honesty signal on the page: logo quality, annotation depth, partner evidence, module status, artifact risk.",
+   "encoding": "Five small pass/caution/absent chips in a row directly under the header, each linking to the panel it summarises.",
+   "data_source": "Derived from the units above: consensus coverage and E-value, significant-term count at the active gate, strict partner count, module membership, ZNF share.",
+   "interactions": [
+    "click a chip -> scrolls to and highlights the relevant panel"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Coverage gaps here are large and independent, so a reader can otherwise scroll a long page before discovering it has no logo, no significant term and no partner. Surfacing the evidence profile at the top respects their time and sets expectations before they invest in reading.",
+   "precompute_needed": "Yes \u2014 a five-field evidence profile per cluster, computed once."
+  },
+  {
+   "id": "R2-078",
+   "name": "Region cohort ribbon",
+   "what_it_shows": "Which cohort this cluster is being compared against throughout the page \u2014 the 300 protein, 500 3'UTR or 100 5'UTR clusters.",
+   "encoding": "A one-line ribbon naming the cohort and its size, placed where the first comparative chart appears.",
+   "data_source": "Verified per-region cluster counts: protein 300, utr3 500, utr5 100.",
+   "interactions": [
+    "hover -> why comparisons are within-region"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Every percentile, ghost distribution and cohort overlay on the page is within-region. Saying so once prevents a reader from taking 'p90 of clusters' as a statement about all 900.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-079",
+   "name": "Partner directionality note",
+   "what_it_shows": "That the association is symmetric co-occurrence, not a directed protein-to-RNA relationship.",
+   "encoding": "One line above the partner table: 'partners are the other modality; the association is symmetric and carries no direction'.",
+   "data_source": "protein_utr_FINAL_scores.csv is a dense protein x UTR grid with one row per unordered pair.",
+   "interactions": [
+    "none"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "A ranked list under a protein-feature heading reads as 'this RNA motif is bound by these proteins'. The data supports no such direction, and one line is the cheapest correction.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-080",
+   "name": "Overlap-rule marker on annotation chips",
+   "what_it_shows": "Which geometric rule attached an annotation to a motif \u2014 overlap versus containment \u2014 since the rule differs by database and is undocumented in the shipped table.",
+   "encoding": "A small superscript on each chip: 'ov' for any-overlap, 'in' for motif-contained-in-feature.",
+   "data_source": "The builder notebooks under sequence_annotation_human/0{1,2,3,5,6,7}.*: InterPro any-overlap (0-based converted); UniProt and ELM any-overlap on raw 1-based coords; MobiDB containment (0-based half-open); IDPO containment on raw 1-based; SignalP any-overlap on raw coords.",
+   "interactions": [
+    "hover -> the rule in words for that database"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "A 5-residue motif that merely touches a 300-residue domain and one fully inside a disorder region are different claims. The rules genuinely differ between databases here, and nothing else on the page reveals it.",
+   "precompute_needed": "Yes \u2014 a static per-database rule table shipped as config."
+  },
+  {
+   "id": "R2-081",
+   "name": "Region-mask provenance note",
+   "what_it_shows": "That protein-layer annotations are deliberately absent from UTR clusters because the upstream join was invalid, not because nothing was found.",
+   "encoding": "A muted line where MobiDB/IDPO/SignalP would appear on a UTR cluster: 'protein-layer databases do not apply to RNA motifs and are masked here'.",
+   "data_source": "The `applies` field of annotation_coverage_stats.json, which reproduces all 8 published coverage numbers exactly under masking. Upstream leak measured elsewhere: MobiDB populated on 67.0% of 5'UTR and 25.3% of 3'UTR rows, plus IDPO and SignalP, totalling ~212,449 spurious annotation rows.",
+   "interactions": [
+    "hover -> why the source data carries these values and why the portal removes them"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Anyone comparing the portal against the raw parquet will find MobiDB terms on UTR motifs and conclude the portal is dropping data. Saying that the removal is deliberate, and why, converts a suspected bug into a visible correctness improvement.",
+   "precompute_needed": "No \u2014 the mask is applied at build; this is the UI label for it."
+  },
+  {
+   "id": "R2-082",
+   "name": "Cluster-level partner evidence summary",
+   "what_it_shows": "One sentence summarising the strength of the whole partner panel, so the reader does not have to integrate a table by eye.",
+   "encoding": "'5 partners pass the phylogenetic-independence filter; the strongest has 23 independent clades and no ZNF contribution' \u2014 or, for an empty cluster, the failure summary from the diagnostic unit.",
+   "data_source": "Aggregated from the cluster's rows in protein_utr_FINAL_scores.csv.",
+   "interactions": [
+    "click -> expands the full partner table"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Partner tables carry five statistics per row and readers will not integrate them. A generated sentence stating the count and the best evidence gives the correct headline in the same place a lazier design would put a bare count.",
+   "precompute_needed": "Yes \u2014 a per-cluster summary computed at build so the wording is deterministic."
+  },
+  {
+   "id": "R2-083",
+   "name": "Keyboard navigation and focus order",
+   "what_it_shows": "That the whole view is operable without a mouse, with a sensible reading order.",
+   "encoding": "Visible focus rings; skip links between panels; arrow-key traversal within tables and the dot plot.",
+   "data_source": "n/a.",
+   "interactions": [
+    "Tab through panels",
+    "arrow keys within a chart to move between marks",
+    "Enter to open the focused item"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Every mark on this page carries information available only on hover, which is unreachable without a pointer. Keyboard access is also the mechanism that makes the same information available to screen readers.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-084",
+   "name": "Chart text equivalents",
+   "what_it_shows": "Every chart's content as a table or a sentence, for accessibility and for readers who prefer numbers.",
+   "encoding": "A 'show as table' control on each chart, plus a concise generated alt description.",
+   "data_source": "The same slices that back each chart.",
+   "interactions": [
+    "toggle chart/table per panel"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "Sequence logos and violins are the least screen-reader-accessible marks in the portal, and the underlying values are small tables anyway. It costs little and removes a real barrier.",
+   "precompute_needed": "No."
+  },
+  {
+   "id": "R2-085",
+   "name": "Figure-quality export of the cluster card",
+   "what_it_shows": "A publication-ready composite of the logo, positional histogram and top enriched terms for one cluster.",
+   "encoding": "SVG at manuscript proportions using the manuscript_style palette and font stack, with the cluster id, n, coverage and snapshot version stamped in.",
+   "data_source": "The same units, re-rendered at export scale.",
+   "interactions": [
+    "choose which panels to include",
+    "SVG or PNG at 2x"
+   ],
+   "library": "SVG serialisation with inlined styles",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "The first author and their reviewers will want cluster panels in slides and rebuttals. Stamping n, coverage and version into the export means the caveats travel with the figure instead of being stripped by the copy-paste.",
+   "precompute_needed": "No."
+  }
+ ],
+ "layout_options": [
+  {
+   "name": "A. Identity rail + tabbed evidence (two-column)",
+   "wireframe": "+========================================================================================+\n| [co-occurrence caveat chrome \u2014 non-dismissible over the partner panel]                 |\n+========================================================================================+\n| < ACTB / utr3_0313 / M1        you arrived from: TATTTGTTTT... 3'UTR 82-126  [dismiss] |\n|   score -0.94 (p38 of cluster) \u00b7 len 45 (p91) \u00b7 entropy 1.21 (p55)                     |\n+========================================================================================+\n| utr3_0215  \"UCUCC, pyrimidine-rich 5-mer\"  [tier 3: derived]      [M4] [3'UTR] [copy]  |\n| quality:  [logo ok] [no sig term] [2 partners] [module M4] [ZNF low 0.01]              |\n+---------------------------+------------------------------------------------------------+\n| IDENTITY RAIL (380px,     | [ Annotations ] [ Partners 2 ] [ Members 566 ] [ Genes ]   |\n| does not scroll away)     |                                                            |\n|                           | ANNOTATIONS                                                |\n| CONSENSUS                 | gate: (o) fdr_cluster<0.05   ( ) all three FDR (as pub.)   |\n|  2|                       |      0 terms                 0 terms                       |\n| bits|   U C U C C         |                                                            |\n|  0 +-------------         | (!) No term passes either gate. 437 of 900 clusters are   |\n| STREME E=9.2e-14          |     in this state. Top terms by fold, all NON-SIGNIFICANT: |\n| 394 sites                 |   fold                                                     |\n| covers [#####-----] 51%   |   10 |                                                      |\n|        corpus med 53%     |    3 |    o NIP7(ns)   o ELAVL1(ns)                        |\n|                           |    1 |--:::.....--------------------------------------      |\n| repertoire (1)            |      +--------------------------------- -log10 p           |\n|  #0 UCUCC  .51  155 car   |   [eCLIP][PAR-CLIP][iCLIP-P][iCLIP-C][miR]  hollow = ns    |\n|  [coherent]               |                                                            |\n|                           | INSTANCE FREQUENCY (always available)                      |\n| POSITION along 3'UTR      |   LARP4 [###-------] 18   PCBP1 [##--------] 15            |\n|  ..||||.||||||.|||..|.    |   (!) only 7.4% of this cluster's instances carry any RBP  |\n|  ~~~~cohort silhouette~~  |       \u2014 bottom 9 of 600 UTR clusters. Its evidence is on   |\n|  median 0.444 (p47)       |       the Partners tab.                                    |\n|                           |------------------------------------------------------------|\n| SIZE                      | PARTNERS   (o) strict, phylo-independent (2)               |\n|  566 inst  [rail p31]     |            ( ) suggestive npmi>0.10  (14)                  |\n|  206 genes [rail p12]     |                                                            |\n|  30 distinct lengths      | prot_0038  Ig-like domain superfamily (InterPro 25.4x)     |\n|  modal len 5 (33%)        |   score .428  npmi_APC .292  co 21 genes                   |\n|                           |   conc [==o------] .21<.35 OK   clades [======o] 8>=8 OK   |\n| COMPOSITION               |   npmi [====o---] .292>.10 OK   co [===o----] 21>=10 OK    |\n|  A## C###### G## U#####   |   ZNF  [o-------] 0.00                                     |\n|                           |   > consensus pairs (3)   > 21 shared genes                |\n| SCORES vs corpus          |                                                            |\n|  score  [=ghost=o=]  -1.09| prot_0241  ...                                             |\n|  entropy[=ghost==o] 1.02  |                                                            |\n|                           | PARTNER PROTEIN FEATURES (union across partners)           |\n| MODULE [M4 Immune]        |  Immunoglobulin-like domain sf  [########] 25.4x  1 ptnr   |\n| [view in network ->]      |  ...                                                       |\n+---------------------------+------------------------------------------------------------+\n| resolution: ( ) module 1,988   (o) cluster 206   ( ) consensus 155 genes               |\n+========================================================================================+",
+   "pros": "The identity rail answers \"what IS this motif\" permanently while the reader works through evidence, so the sequence object never scrolls out of view \u2014 which matters because the logo is the referent for everything in the tabs. Tabs keep four heavy panels off one page, so the initial payload and the visual load are both small. Region-conditional variation is easy: the rail swaps its positional histogram for a pLDDT distribution on protein clusters and nothing else moves. It matches the mental model of the data (a cluster is a sequence object that has associations) and it is the most conventional, so it needs the least explanation.",
+   "cons": "Tabs hide the partner panel behind a click, and the partner panel is the half of R2 most likely to be under-visited \u2014 a reader can leave believing the cluster has no evidence when its evidence is one tab away, which is exactly the failure mode for the 437 clusters with no significant term. Comparing annotations against partners requires switching tabs, so the roll-up of partner protein features cannot sit beside the cluster's own annotations. The 380px rail is expensive on a 1280px laptop, squeezing the dot plot into roughly 700px.",
+   "best_for": "The default, and the best fit for the RNA-biology wet-lab reader who arrives from R1 with one gene in mind, wants to know what the motif is, and will follow at most one link onward. Also the most forgiving layout for the coverage gaps, because the rail always has something to show even when every tab is thin."
+  },
+  {
+   "name": "B. Evidence ladder (single column, ordered by evidential strength)",
+   "wireframe": "+==========================================================================+\n| [caveat chrome]                                                          |\n+==========================================================================+\n| utr3_0215  \"UCUCC, pyrimidine-rich 5-mer\"   [tier 3] [M4] [3'UTR]        |\n|                                                                          |\n| EVIDENCE PROFILE   [logo ok] [no sig term] [2 partners] [ZNF low]        |\n+==========================================================================+\n| 1 \u00b7 WHAT IT IS            (direct measurement, no inference)             |\n|   +------------------+  566 instances \u00b7 206 genes \u00b7 30 distinct lengths  |\n|   |  U C U C C       |  modal length 5 covers 33% of members            |\n|   |  [logo]          |  composition  A## C###### G## U#####             |\n|   +------------------+  covers [#####-----] 51% of members (corpus 53%)  |\n|   position ..||||.||||||.|||..|.  median 0.444   ~cohort silhouette~     |\n|   [full member table 566 rows v]                                         |\n+--------------------------------------------------------------------------+\n| 2 \u00b7 WHAT IS ON IT         (annotation, per instance \u2014 no test)           |\n|   LARP4 18 (3.2%)  PCBP1 15  PCBP2 14  DDX55 9  UPF1 8                   |\n|   (!) 7.4% of instances carry any RBP \u2014 bottom 9 of 600 UTR clusters     |\n+--------------------------------------------------------------------------+\n| 3 \u00b7 WHAT IS ENRICHED ON IT   (statistical test, gene-level, N=17,761)    |\n|   gate: (o) fdr_cluster  ( ) all three FDR (as published)                |\n|   (!) 0 terms pass. Showing top by fold, greyed, labelled ns.            |\n|   [dot plot, all hollow]                                                 |\n+--------------------------------------------------------------------------+\n| 4 \u00b7 WHAT IT CO-OCCURS WITH   (association + phylogenetic gate)           |\n|   (o) strict (2)   ( ) suggestive npmi>0.10 (14)                         |\n|   prot_0038 \u00b7 Ig-like domain superfamily 25.4x \u00b7 score .428              |\n|     conc .21<.35 OK | clades 8>=8 OK | npmi .292>.10 OK | co 21>=10 OK   |\n|     ZNF 0.00 | 21 shared genes v | 3 consensus pairs v                   |\n|   prot_0241 \u00b7 ...                                                        |\n|   -- 298 candidate partners did not pass. Best failing: prot_0112,       |\n|      fails clade concentration (0.61 >= 0.35): one protein family.  v    |\n+--------------------------------------------------------------------------+\n| 5 \u00b7 WHERE IT SITS           (context)                                    |\n|   [900-cluster scatter, this one ringed]   [module M4] [network ->]      |\n+==========================================================================+",
+   "pros": "The vertical order is an argument: direct measurement, then annotation, then statistical test, then association, then context \u2014 each step more inferential than the last, so a reader who stops early stops on the firmest ground and a reader who reaches the bottom has been walked through the epistemology without a methods detour. Nothing is hidden behind a tab, so the partner panel and the gate-failure diagnostic are always encountered. Numbered sections make deep links precise and reviewable. It degrades gracefully: a thin cluster simply produces a shorter ladder with explicit empty states, and the shape of the page itself communicates how much is known.",
+   "cons": "It is a long scroll \u2014 with 566 members, 40 enrichment rows and 14 relaxed partners this runs several screens, and nothing is side-by-side, so comparing the cluster's own annotation against its partners' features means scrolling between sections 2 and 4. The linear order imposes one reading, which frustrates a returning user who only ever wants section 4. The logo scrolls out of view by section 3, so later panels lose their referent unless a sticky mini-header carries it.",
+   "best_for": "The reviewer and the sceptical expert \u2014 the reader who wants to know what is measured versus inferred and will read top to bottom once. It is also the best layout for the manuscript-featured clusters like utr3_0215 and utr5_0096, where the honest story is precisely that sections 2 and 3 are weak and section 4 is where the evidence lives; the ladder makes that legible instead of looking like a broken page."
+  },
+  {
+   "name": "C. Bilingual facing pages (this cluster | gate | partner side)",
+   "wireframe": "+==============================================================================+\n| [caveat chrome \u2014 co-occurrence, not physical interaction]                    |\n+==============================================================================+\n| utr3_0215  3'UTR \u00b7 M4     <->    partner: prot_0038  [< 1 of 2 >]  [all v]   |\n+---------------------------+---------------------+----------------------------+\n| THIS CLUSTER              |  THE ASSOCIATION    | PARTNER CLUSTER            |\n|                           |                     |                            |\n|  2|                       |  phylo score  .428  |  2|                        |\n| bits|  U C U C C          |  npmi_mip_APC .292  | bits|  . I . V . L          |\n|  0 +------------          |  npmi_raw     .301  |  0 +-----------------       |\n|  UCUCC  cov 51% 155 car   |  co_count      21   |  [logo]  cov 39%  189 car  |\n|                           |                     |                            |\n|  position in 3'UTR        |  THE FOUR GATES     |  position in protein       |\n|  ..||||.||||.|||..        |  conc  .21 [==o---] |  ...|||||.||.....          |\n|  median 0.444             |        threshold .35|  median 0.51               |\n|                           |  clades 8  [-----o=]|                            |\n|  566 inst \u00b7 206 genes     |        threshold  8 |  512 inst \u00b7 289 genes      |\n|  composition              |  npmi .292 [===o--] |  pLDDT median 0.83         |\n|  A## C###### G## U####    |        threshold .10|  [ordered]                 |\n|                           |  co_count 21[==o---]|                            |\n|  ITS OWN ANNOTATION       |        threshold 10 |  ITS PROTEIN FEATURES      |\n|  LARP4 18 \u00b7 PCBP1 15      |  frac_co_ZNF  0.000 |  Ig-like domain sf 25.4x   |\n|  (!) 7.4% RBP coverage    |       [o--------]   |  FDR 3e-12  k=25/n=448     |\n|  (!) 0 terms at FDR<.05   |                     |  Ig I-set 11.2x            |\n|                           |  PASSES all four    |  [full enrichment v]       |\n|  [members 566 v]          |  rank #412 of 2,620 |  [members 512 v]           |\n+---------------------------+---------------------+----------------------------+\n| CONSENSUS PAIRS (3)   UCUCC <--21 genes--> ..IVL   npmi .19  clades 8       |\n+------------------------------------------------------------------------------+\n| SHARED CARRIER GENES (21)  resolution: (o) cluster ( ) consensus            |\n|  [CD19 A] [MS4A1 A] [PTPRC lit] [FCRL1 A] ... A = literal at called position |\n+------------------------------------------------------------------------------+\n| OTHER PARTNERS  [prot_0241 .31] | 298 did not pass \u2014 best fails clade conc.  |\n+==============================================================================+",
+   "pros": "It renders the requirement's exact phrase \u2014 \"how it interacts with protein features\" \u2014 as a spatial relation, with the two modalities facing each other and the gate literally in the middle, so the filter reads as the thing standing between two claims rather than as metadata. Both sides use identical units on identical scales, which makes the protein/RNA asymmetry visible and honest: the reader sees at a glance that the UTR side has 7.4% RBP coverage and no significant term while the protein side has a 25.4x InterPro enrichment. The gate spine is the single best place for the four bullet charts because it is the only layout where they are the visual centre rather than a table column. It also makes the bilingual claim of the whole project immediately legible.",
+   "cons": "It is partner-centric: it shows one association at a time, so a cluster with 39 partners becomes a paging exercise and the ranked comparison across partners \u2014 which is what \"partner-cluster ranking\" asks for \u2014 is pushed to a strip at the bottom. It collapses badly for the 282 UTR and 99 protein clusters with no passing partner, where the entire right two-thirds of the page has nothing to show; those clusters need a different layout entirely. Three columns on a 1280px laptop leaves roughly 400px each, too narrow for a full enrichment dot plot or a 20-column table. It also privileges the association over the cluster's own identity, which is the wrong emphasis when the reader arrived from R1 asking about a motif.",
+   "best_for": "The mRNA-design engineer and the reader working the R3 network backwards \u2014 someone who already has a protein in mind and wants to know which UTR motifs travel with it, and who cares more about one association in depth than about the cluster in general. Best used as a drill-down mode reachable from layouts A or B rather than as the default entry point."
+  },
+  {
+   "name": "D. Analyst dashboard (small-multiple grid, everything visible)",
+   "wireframe": "+==================================================================================+\n| [caveat] utr3_0215 \u00b7 3'UTR \u00b7 M4 \u00b7 566 inst \u00b7 206 genes    [density: comfy|dense] |\n+=================+=================+================+=============================+\n| LOGO            | POSITION        | LENGTHS        | SCORE / ENTROPY             |\n|  2|             |  ..||||.|||..   |  |##_          |  [==ghost==o==]  -1.09      |\n| bits| U C U C C |  ~cohort~       |  |####__       |  [==ghost===o=]   1.02      |\n|  0 +----------- |  med .444 (p47) |  mode 5 (33%)  |  no pLDDT (UTR cluster)     |\n| cov 51% E 9e-14 |  n=566          |  30 lengths    |                             |\n+=================+=================+================+=============================+\n| ENRICHMENT (0 sig)              | PARTNERS (2 strict / 14 relaxed)              |\n|  fold                           |  prot_0038 .428 | conc.21 clad8 npmi.29 co21 |\n|  10|                            |  prot_0241 .31  | conc.28 clad9 npmi.21 co14 |\n|   3|   o o(ns)                  |  --- 298 failed. modal cause: clade conc.     |\n|   1|-:::......----------        |  PARTNER FEATURES: Ig-like sf 25.4x           |\n|     +---------- -log10 p        |                                               |\n+=================+===============+===============================================+\n| ANNOTATION FREQ | COMPOSITION   | CONTEXT: this cluster vs all 900              |\n| LARP4 [###] 18  |  A##          |   n_genes                                     |\n| PCBP1 [##] 15   |  C######      |  4000|      .  .                               |\n| PCBP2 [##] 14   |  G##          |      |  .:.:o:.  .    o = this cluster          |\n| (!) 7.4% cov    |  U#####       |   500| .::::::::..                            |\n|                 |  GC 0.31      |      +---------------- n_instances             |\n+=================+===============+===============================================+\n| MEMBERS 566  [gene|tx|start|end|seq|score|ann]   [carriers 206]  [export v]      |\n+==================================================================================+",
+   "pros": "Everything is on one screen at once, so cross-panel reasoning is immediate \u2014 a reader can see that the logo is strong, the enrichment is empty, the RBP coverage is 7.4% and the partner evidence is real, all without a click, and form a judgement about the cluster in seconds. Uniform tile geometry means a power user learns one scan path and reuses it across hundreds of clusters, which is what makes browsing 900 clusters tractable. It is the best layout for spotting inconsistency (a confident logo next to an empty everything-else). Tiles collapse cleanly to an empty state without disturbing the grid.",
+   "cons": "It flattens the evidential hierarchy completely \u2014 a hollow non-significant dot plot occupies the same visual weight as a passing four-gate association, which is precisely the confusion the co-occurrence caveat exists to prevent, so it risks being the least honest layout despite showing the most. Every tile is too small for its detail: the enrichment dot plot cannot show more than a handful of terms, the partner table loses its gate bullets, and the member table is reduced to a strip. It demands prior fluency in every unit, so a first-time reader has no entry point and no reading order. On a 1280px laptop the tiles fall below roughly 300px wide and several become unreadable rather than merely compact.",
+   "best_for": "The first author and repeat power users doing comparative sweeps across many clusters, and the natural companion to a compare-two-clusters mode. It is a poor default and a poor landing page for anyone arriving from the manuscript, but an excellent optional density mode toggled from layout A."
+  },
+  {
+   "name": "E. Instance-first progressive zoom (motif -> cluster -> association)",
+   "wireframe": "+==========================================================================+\n| [caveat]                          zoom: [instance] [cluster] [network]   |\n+==========================================================================+\n| YOUR MOTIF                                                               |\n|  ACTB \u00b7 NM_001101 \u00b7 3'UTR 82-126 (45 nt)                                 |\n|  ...gcta UAUUUGUUUUUGUAGGUUUUAUUCUAAAUAUUUGUAAAUUAUU cctg...             |\n|  score -0.94  entropy 1.21  length 45                                    |\n|  annotations: [eCLIP TIAL1 3/4] [eCLIP DDX55] [PAR-CLIP ELAVL1] [no miR] |\n|                                                                          |\n|                            v  zoom out  v                                |\n+--------------------------------------------------------------------------+\n| ITS CLUSTER  utr3_0313  \"AU-rich\"  412 instances \u00b7 198 genes             |\n|  +--------------+   your motif sits here:                                |\n|  | U A U U U    |     position  ..|||.|||##|||..   (p78, 3'-biased)      |\n|  | [logo]       |     length    |##_ _ _ _#_       (p91, long member)    |\n|  +--------------+     score     [=ghost=o====]     (p38)                 |\n|  covers 44% of members \u00b7 your motif matches at 3.1 bits [above cutoff]   |\n|  (!) your motif is longer than 91% of this cluster's members             |\n|                                                                          |\n|                            v  zoom out  v                                |\n+--------------------------------------------------------------------------+\n| ITS ASSOCIATIONS   7 protein clusters pass the phylogenetic gate         |\n|  prot_0083 C2H2 zinc finger  score .52  conc.19 clad14 npmi.34 co61      |\n|  prot_0129 ...                                                           |\n|  of ACTB's 206 co-carrier genes, ACTB itself carries prot_0083? [no]     |\n|  [see all partners]  [see this cluster in the network]                   |\n+==========================================================================+",
+   "pros": "It is the only layout that literally answers the requirement as written \u2014 \"for a motif (instance or cluster)\" \u2014 by starting from the instance and widening, so the reader never loses the thing they clicked and every cluster-level statistic arrives already framed as context for their motif. The percentile markers make the single most useful judgement immediate: is my motif typical of this cluster or an outlier? It creates genuine narrative continuity from R1, and the explicit zoom control teaches the instance/cluster/module hierarchy through use rather than through a methods page \u2014 which matters given that 5.91% of motif strings sit in more than one cluster. It also naturally answers \"does my own gene carry the partner motif too?\", which is the question that closes the loop back to R1.",
+   "cons": "It is wrong when reached from browse, search or the network, where there is no instance \u2014 roughly half the arrivals \u2014 so it needs a full fallback to another layout and the portal ends up maintaining two. Cluster-level detail is necessarily compressed to make room for the instance, so the enrichment panel, the member table and the full partner list all move behind links; a reader who wants the cluster rather than the motif has to click past the framing. The vertical zoom metaphor also competes with the page's own scroll, which can feel unstable.",
+   "best_for": "The wet-lab reader arriving from their own gene in R1 \u2014 by far the most common real entry into R2 \u2014 and the single best layout for making the instance/cluster/consensus resolution distinction stick. Strongest as a mode that layout A switches into when an instance id is present in the URL, rather than as the standalone design."
+  }
+ ],
+ "open_questions": [
+  "BLOCKING, and it lands on an R2 page: the manuscript says 'MLXIPL ... contains the M2 utr3_0027 motifs', but modules.json assigns utr3_0027 to module 1 while the code that produced that figure (build_mlxipl_signatures.py, MLXIPL_M2_signatures.csv) uses utr3_0227, which is module 2. Whichever the portal uses, the cluster page for one of these two ids will contradict the paper. All file evidence points to a one-character typo. One email to the author; it should go before the cluster page is built.",
+  "Should the display significance gate be fdr_cluster<0.05 or the triple gate that 10_cluster_term_enrichment.py mandates? I measured the cost: the triple gate drops coverage from 463 to 401 clusters, and on the RNA side from 123 to 73 (utr3) and 43 to 31 (utr5) \u2014 so UTR clusters with any displayable term fall from 166 to 104 of 600. My recommendation is to default to the triple gate with the single-FDR view one click away and both counts printed, but this is the author's call because it changes what roughly 60 cluster pages say.",
+  "Should the STREME gap-fill be run before the cluster page is designed? It lifts logo coverage from 466 toward ~700 of 900 at a measured cost of about 2.4 CPU-hours (roughly 15 min at WORKERS=10), and the binary is present at /Users/wangyanz/software/meme/bin/streme. But newly generated PWMs will not match the matrices behind the published figures, so the page needs a provenance badge either way. Designing the layout against 466 and retrofitting 700 would be the wrong order.",
+  "Is the ZNF regex (^ZNF|^ZFP|^ZSCAN|^ZKSCAN) an acceptable proxy for the per-cluster artifact badge, or should it use the 36 protein classes from the aa 5-mer TF-IDF / truncated-SVD / Louvain procedure that the pipeline itself uses? The regex gives a defensible v1 (14 clusters above 40% ZNF, correctly flagging prot_0228 and utr5_0020 \u2014 both endpoints of the #1 raw-NPMI artifact pair), but it is not the same object as clade_concentration and should not be presented as if it were. Where are the 36 class assignments stored?",
+  "For the 437 clusters with no significant term, how prominent should nominal-p terms be? Showing them greyed is honest, but a reader who screenshots the panel loses the greying. Options: refuse to plot them at all and show only instance frequency; plot them with 'ns' printed inside each mark rather than only in the legend; or watermark the panel. I lean toward per-mark labelling, but it is a judgement about how the page will be misused.",
+  "Enrichment is gene-level against a universe of 17,831/17,761/17,045 genes, while everything else on the cluster page is instance-level. Should the page also compute an instance-level enrichment so the units match, accepting that the numbers will then differ from the published table, or stay gene-level and label the mismatch? Staying gene-level and labelling is safer; the risk is a reader comparing k=22 against the 566 instances shown two panels above.",
+  "No cross-reference exists anywhere in the trees to a known RBP motif database (CISBP-RNA, RBPmap, ATtRACT, Ray et al.), so the portal cannot answer the first question any RNA biologist will ask of UCUCC: is that actually the PTBP motif? TOMTOM ships with the same MEME install and could compare the 0.56 MB PWM bundle against a downloaded database. Is that in scope for v1, and if not, is the 'proposed in the manuscript, not measured here' badge sufficient?",
+  "The aligned-member strip, the per-instance PWM bits score and the carrier tier classification all require the same new computation: sliding each cluster's display PWM over its members and storing (raw_motif_index, offset, bits). Using the pipeline's own coverage() definition (COV_BITS=0.5, uniform background) would make the numbers match the published coverage figures. Is this build-time job approved? It is the single largest new computation in the R2 catalog and three units depend on it.",
+  "Should the partner table's default sort ever expose npmi_raw? I measured that APC changes the #1 partner for only 21.0% of UTR clusters and the corpus Spearman between raw and APC is 0.981 \u2014 so locally APC is a modest reranker and the clade-concentration gate does the real work. That argues the raw-vs-APC scatter is a 'nice' unit, not a headline, and that npmi_raw should stay unavailable as a sort key without a warning. Confirm the author agrees.",
+  "RBP names are unnormalised across the four CLIP columns (U2AF65/U2AF2, TDP43/TARDBP, UNR/CSDE1, IMP3/IGF2BP3, HNRNPH/HNRNPH1, plus opaque labels 'ACI' with 4,960 entries and 'SDOS'). Until a ~15-row alias map exists, every per-RBP count and every RBP facet on the cluster page is slightly wrong. Who signs off on the aliases?",
+  "Only 19 of 318 UTR clusters have no consensus pair on any strict partner, which is much better than the 54.6% per-edge figure suggests. Given that, is it worth re-running 17_consensus_association.py over the 757 cross-module pairs (which have none by construction)? For R2 specifically the answer looks like no; the need is on the R3 edge page.",
+  "Does a per-nucleotide NTScore aggregate over a cluster's instances exist or could it be built \u2014 a metaprofile of NTScore across all members aligned on the motif? The two HDF5 caches cover 5'UTR and 3'UTR at full resolution, so a cluster-level metaprofile is computable and would be a genuinely new visual for R2 (it would show whether a cluster sits on a score peak). No survey established whether the author wants this, and it does not exist for protein clusters, so it would be region-asymmetric.",
+  "Should protein clusters with very long members be handled specially? Protein motif_length reaches 535 aa while the median is 8, so a single 'motif' can be an entire domain and the word becomes misleading at that end. The length histogram surfaces it, but the logo, the aligned-member strip and the flanked-context strip all assume short spans."
+ ]
+}

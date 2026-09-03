@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MIRTO Atlas — motif clusters across mRNA and protein</title>
+<meta name="description" content="A companion atlas to MIRTO: 889,215 motif instances in human 5'UTR, 3'UTR and protein sequence, 900 embedding clusters, 2,620 gated protein-UTR associations, 6 modules.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230072B2'/><rect x='6' y='9' width='9' height='4' rx='1' fill='white'/><rect x='17' y='9' width='9' height='4' rx='1' fill='%23D55E00'/><rect x='6' y='19' width='20' height='4' rx='1' fill='white' opacity='.55'/></svg>">
+</head>
+<body>
+
+<!-- Classic (non-module) boot guard. Runs even where ES modules cannot load,
+     e.g. straight off file:// where the browser refuses module + fetch. -->
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('mirto.theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* private mode / blocked storage: system theme is a fine default */ }
+  window.__MIRTO_BOOT__ = { t0: Date.now(), booted: false, protocol: location.protocol };
+})();
+</script>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div id="shell">
+  <!-- chrome is mounted by js/main.js; this is the pre-boot skeleton -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-in">
+      <a class="brand" href="#/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">MIRTO <em>Atlas</em></span>
+      </a>
+      <div class="topbar-spacer"></div>
+      <div class="boot-hint mono">loading…</div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <div class="wrap">
+      <div class="skeleton-block" style="height:22px;width:38%"></div>
+      <div class="skeleton-block" style="height:12px;width:70%"></div>
+      <div class="skeleton-block" style="height:12px;width:55%"></div>
+    </div>
+  </main>
+
+  <footer class="footer" id="footer"></footer>
+</div>
+
+<noscript>
+  <div class="wrap noscript-note">
+    <h1>MIRTO Atlas</h1>
+    <p>This atlas is a static site that renders its figures in the browser. It needs JavaScript
+       enabled. No data leaves your machine — every payload is a local JSON file.</p>
+  </div>
+</noscript>
+
+<script type="module" src="js/main.js"></script>
+
+<!-- If the module never boots (file:// origin, or a hard error in main.js) say so plainly
+     instead of leaving a blank page. -->
+<script>
+(function () {
+  function panel() {
+    if (window.__MIRTO_BOOT__.booted) return;
+    var isFile = location.protocol === 'file:';
+    var m = document.getElementById('main');
+    if (!m) return;
+    m.innerHTML =
+      '<div class="wrap"><section class="cold-start">' +
+      '<p class="eyebrow mono">' + (isFile ? 'local file origin' : 'startup failed') + '</p>' +
+      '<h1>' + (isFile ? 'This atlas needs to be served over HTTP.' : 'The atlas did not start.') + '</h1>' +
+      (isFile
+        ? '<p>Browsers refuse to load ES modules and read local JSON from a <code>file://</code> page' +
+          ' (cross-origin rules). Nothing is missing from your copy — it just needs a local server.' +
+          ' From the folder that contains <code>index.html</code>:</p>' +
+          '<pre class="cold-cmd mono">python3 -m http.server 8000</pre>' +
+          '<p>then open <code>http://localhost:8000/</code>. No network access is required;' +
+          ' the server only reads files off your own disk.</p>'
+        : '<p>The page shell loaded but <code>js/main.js</code> did not finish. Open the browser' +
+          ' console for the underlying error. If <code>portal/data/</code> has not been baked yet,' +
+          ' the shell should still render with empty states — a hard failure here is a bug.</p>') +
+      '</section></div>';
+  }
+  window.addEventListener('load', function () { setTimeout(panel, 900); });
+  setTimeout(panel, 2500);
+})();
+</script>
+
+</body>
+</html>

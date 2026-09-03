@@ -1,0 +1,1600 @@
+{
+ "requirement": "R3 \u2014 META-MODULE NETWORK VIEW. Show the association structure between protein-motif clusters and RNA (5'UTR/3'UTR) motif clusters, organised into the six meta-modules, carrying motif consensus on nodes and edges; clicking a node or an edge opens a detail panel including annotations. Everything must read as statistical co-occurrence (NPMI + APC, then a four-condition phylogenetic-independence gate), never as demonstrated physical binding.\n\nMEASURED GROUND TRUTH FOR THIS VIEW (re-verified by me, not inherited):\n\u2022 Graph: 519 nodes / 2,620 gated edges. 201 protein clusters, 318 UTR clusters (251 utr3 + 67 utr5). Edges split 2,024 utr3 / 596 utr5.\n\u2022 Degree: protein mean 13.03, median 8, p90 35, max 62 (prot_0223, then prot_0085 60, prot_0217 58). UTR mean 8.24, median 5, p90 23, max 39 (utr5_0028, utr5_0090). 5'UTR clusters are hub-enriched: 67 utr5 nodes, median degree 6, vs 251 utr3 nodes, median degree 4.\n\u2022 Hairball arithmetic: top-10 protein hubs touch 20.5% of edges, top-20 35.9%, top-50 64.1%; top-10 UTR hubs 13.9%, top-50 49.7%. Top-N-by-score subgraphs: 50 edges\u219250 nodes (min score 0.790), 200\u2192127 (0.558), 500\u2192210 (0.414), 1000\u2192301 (0.312), all 2,620\u2192519 (0.146).\n\u2022 Bipartite matrix is 201\u00d7318 = 63,918 cells with 2,620 filled = 4.10% density \u2014 sparse enough that a seriated heatmap is a legitimate primary representation, not a fallback.\n\u2022 Per-module intra submatrices (P\u00d7U cells / edges / density / max degrees): M1 39\u00d767=2,613 / 774 / 0.296 / 44,29 \u00b7 M2 39\u00d773=2,847 / 409 / 0.144 / 40,19 \u00b7 M3 62\u00d771=4,402 / 385 / 0.087 / 23,38 \u00b7 M4 20\u00d753=1,060 / 123 / 0.116 / 16,8 \u00b7 M5 24\u00d733=792 / 126 / 0.159 / 17,16 \u00b7 M6 14\u00d718=252 / 43 / 0.171 / 7,8. Every module fits on one laptop screen.\n\u2022 Cross-module edges: 757 of 2,620 (28.9%), 3 more have an unassigned endpoint (prot_0291\u00d7utr5_0013, prot_0108\u00d7utr3_0355, prot_0058\u00d7utr3_0139). Cross-module mean score 0.2877 vs intra 0.3394.\n\u2022 The module\u00d7module matrix is DIRECTIONAL and asymmetric \u2014 protein-module rows \u00d7 UTR-module columns: M1p\u2192M2u 178 but M2p\u2192M1u 66; M2p\u2192M3u 73 but M3p\u2192M2u 94; M1p\u2192M5u 94 / M5p\u2192M1u 98; M6p\u2192M1u 23 / M1p\u2192M6u 9. Undirected totals M1-M2 244 (mean 0.292), M1-M5 192 (0.325), M2-M3 167 (0.266), M1-M6 32, M1-M3 30, M2-M5 28, M3-M4 22, M5-M6 15, M3-M6 6, M2-M4 5, M2-M6 5, M3-M5 5, M4-M5 4, M1-M4 1, M4-M6 1. A symmetric 6-node meta-graph destroys this asymmetry; the 6\u00d76 heatmap is therefore a MUST, not an alternative.\n\u2022 Edge attribute ranges over the 2,620: phylo_corrected_score 0.146 / med 0.276 / p90 0.510 / max 1.769; npmi_mip_APC 0.100\u20130.721 (med 0.142); npmi_raw med 0.220, max 0.731; co_count 10\u2013272 (med 49); n_indep_clades 8\u201323 (med 13); n_indep_families 9\u2013143 (med 38); clade_concentration 0.108\u20130.349; frac_co_ZNF 0\u20130.400 (med 0.015, p90 0.109).\n\u2022 Node content coverage: 451 of 519 nodes have \u22651 STREME consensus AND a significant PWM; 68 have neither. Only 308 of 519 have \u22651 term at FDR_cluster<0.05 \u2014 protein 199/201 but UTR only 109/318; under the authors' triple gate (fdr_cluster & fdr_global & fdr_cmh_cluster all <0.05) it drops to 276/519. Curated labels exist for 37 clusters. Positional histograms are cached for only 142 of 519.\n\u2022 Consensus honesty: 1,226 consensus rows, coverage median 0.365, and 418 of 1,226 (34%) have coverage < 0.25. utr5_0004's headline CGCCGCCACC has coverage 0.212 over 51 carriers. A logo shown without its coverage is the single most misleading thing this view can do.\n\u2022 Edge consensus: 1,430 of 2,620 edges have \u22651 consensus-pair row; ZERO of the 757 cross-module edges do. 2,000 of 2,620 have consensus on BOTH endpoints (tier-2 fallback possible); exactly 3 have consensus on neither.\n\u2022 Carrier genes \u2014 VERIFIED: co_count == |transcripts(protein cluster) \u2229 transcripts(UTR cluster)| exactly, 800/800 edges tested, computable in 0.02 s from the 541,746 (transcript, cluster) memberships. Cluster-level shared sets: median 64.5, p90 123, max 272. But the consensus-level AND over consensus_presence.npz gives median 23 and returns ZERO for 26 of 500 sampled edges \u2014 so consensus-level carriers must never be the default.\n\u2022 Relaxed tier (passes_phylo OR npmi_mip_APC>0.1) = 7,210 edges over 835 nodes, of which 4,590 fail the gate. 13,385 of the 180,000 pairs have co_count 0.\n\u2022 UNDER-USED ASSET nobody in the four candidate designs found: /Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v4_0621/results/corrected_score_matrices.npz holds dense float64 300\u00d7600 matrices (npmi_raw, npmi_mip, npmi_weighted, npmi_family, perm_z, perm_p, co, fam_support, frac_co_znf) plus pcl/ucl label arrays. Its `co` reproduces co_count 500/500 and its `npmi_mip` matches the CSV to 5e-5 (the CSV is the rounded copy). This is direct, reshape-free backing for every matrix/heatmap unit. Its sibling results/matrices_cache.npz holds the gene\u00d7cluster presence matrices P (18,068\u00d7300, int8, sum 137,901) and U (18,068\u00d7600, sum 403,544) with the gene id array \u2014 the exact provenance of co_count and the fastest source for any carrier-gene set, including sub-threshold pairs.",
+ "units": [
+  {
+   "id": "R3-01",
+   "name": "Meta-module node-link graph (6 supernodes)",
+   "what_it_shows": "The six meta-modules as discs joined by the 15 undirected cross-module association counts \u2014 the literal top level of 'meta modules'.",
+   "encoding": "Six discs, area \u221d n_edges (43\u2013774, sqrt-scaled), fill = module colour; 15 curved links with width \u221d undirected cross-module edge count (M1-M2 244 \u2026 M4-M6 1) and label shown when count \u2265 15. Ring around each disc encodes n_protein:n_utr split.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v4_0621/03.interacting_modules/modules.json (module_id, n_protein, n_utr, n_edges, mean_score, mean_indep_clades, mean_frac_ZNF, top_pairs); cross-module counts crosstabbed from results/phylo_corrected_candidates.csv (protein, utr) through the modules.json membership map",
+   "precompute_needed": "YES \u2014 the 6\u00d76 cross-module adjacency exists in no file. 4 lines of pandas at bake time; measured values are in the requirement block above.",
+   "interactions": [
+    "click a disc \u2192 filter the main canvas to that module",
+    "click a link \u2192 list the cluster pairs behind it",
+    "hover \u2192 module short name, theme, n_edges, mean_frac_ZNF",
+    "double-click a disc \u2192 drill to the module bipartite view"
+   ],
+   "library": "hand-rolled SVG or Plotly go.Scatter",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "prior_art": "Circos ideogram summary ring; Gephi group-collapse view",
+   "why_it_earns_its_place": "It is the only unit that answers 'which modules talk to which' in one glance and gives the reader an entry point that is not a hairball. Without it the 519-node graph is the first thing anyone sees."
+  },
+  {
+   "id": "R3-02",
+   "name": "Directional 6\u00d76 module adjacency heatmap",
+   "what_it_shows": "Protein-module (rows) \u00d7 UTR-module (columns) edge counts, preserving the asymmetry the node-link meta graph destroys: M1protein\u2192M2utr is 178 edges but M2protein\u2192M1utr is only 66.",
+   "encoding": "6\u00d76 cells, fill = edge count on a sequential ramp with the count printed; diagonal (intra-module, 774/409/385/123/126/43) visually separated by a heavier cell border so intra and cross are not read on the same scale; a second toggleable layer shows mean phylo_corrected_score per cell instead of count.",
+   "data_source": "pd.crosstab of results/phylo_corrected_candidates.csv protein/utr mapped through modules.json; the NaN row/col carries the 3 unassigned-endpoint edges",
+   "precompute_needed": "YES \u2014 same 6\u00d76 bake artifact as R3-01, but kept DIRECTIONAL (do not collapse to the undirected 15).",
+   "interactions": [
+    "click a cell \u2192 the main canvas filters to that module-pair's edges",
+    "hover \u2192 both directional counts, undirected total, mean score",
+    "toggle count \u2194 mean score \u2194 mean n_indep_clades"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "prior_art": "Confusion matrix; Circos-style adjacency table in community-detection papers",
+   "why_it_earns_its_place": "The bilingual claim is inherently asymmetric \u2014 a protein motif in M1 pairing with an M2 UTR motif is a different statement from the reverse. Only 36 numbers, and it is the single densest piece of information in the whole view. Nobody in the four candidate designs kept the direction."
+  },
+  {
+   "id": "R3-03",
+   "name": "Cross- vs intra-module stacked bar per module",
+   "what_it_shows": "For each module, how many of its edges stay inside it versus leave it, so the reader sees that 28.9% of the whole result is cross-module before deciding whether to hide it.",
+   "encoding": "Six horizontal stacked bars: solid segment = intra edges, hatched segments coloured by partner module = cross edges; total labelled.",
+   "data_source": "results/phylo_corrected_candidates.csv + modules.json membership map",
+   "precompute_needed": "YES \u2014 same bake artifact as R3-01",
+   "interactions": [
+    "click a hatched segment \u2192 filter to that module pair",
+    "hover \u2192 count and mean score for that partner"
+   ],
+   "library": "hand-rolled SVG / Plotly go.Bar",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Makes the cross-module toggle an informed choice rather than a hidden default. It is also the honest counterweight to the six-clean-modules story the manuscript figure implies."
+  },
+  {
+   "id": "R3-04",
+   "name": "Module summary card row (six cards)",
+   "what_it_shows": "Each module's shape and quality in one card: n_protein \u00d7 n_utr, n_edges, mean_score, mean_indep_clades, mean_frac_ZNF, member gene count.",
+   "encoding": "Six cards, header band in module colour, short name (M1-TF, M2-TF, M3-Secretory, M4-Immune, M5-RNA processing, M6-Translation), four stat rows, and a 3-step ZNF risk chip (M3 0.003 \u2026 M1 0.062).",
+   "data_source": "modules.json + 03.interacting_modules/modules_summary.csv + module_leading_terms.csv (n_genes: M1 3,388 / M2 3,046 / M3 4,348 / M4 1,988 / M5 1,607 / M6 1,562)",
+   "interactions": [
+    "click \u2192 module drill-down",
+    "hover a statistic \u2192 its definition"
+   ],
+   "library": "plain HTML/CSS",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The module is the unit of the requirement's title. Without a card the reader has no place to read 'what is M4' before entering the graph."
+  },
+  {
+   "id": "R3-05",
+   "name": "Module theme caption strip",
+   "what_it_shows": "The ready-made leading-GO-term phrase for each module, so a module node is never just 'M4'.",
+   "encoding": "One line of up to 4 semicolon-separated leading terms, truncated with a '+n more' affordance.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v4_0621/03.interacting_modules/module_leading_terms.csv column leading_terms (8 terms per module, already curated: M6 = 'cytoplasmic translation; cytosolic ribosome; structural constituent of chromatin; \u2026')",
+   "interactions": [
+    "click a term \u2192 the module GO dot plot scrolled to that row"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Zero new computation, and it turns six colour swatches into six biological claims. The file already exists and is unused by every candidate design."
+  },
+  {
+   "id": "R3-06",
+   "name": "Bipartite node-link canvas \u2014 full graph",
+   "what_it_shows": "All 201 protein clusters and 318 UTR clusters joined by the 2,620 gated edges, as ONE connected structure including the 757 cross-module edges.",
+   "encoding": "Protein clusters as circles in a left column band, UTR clusters as squares in a right band (the Fig 3e convention); fill = module colour, grey #A7A7A7 reserved for the 3 unassigned endpoints; radius \u221d sqrt(n_transcripts) over the measured 52\u20133,078 range; edge width \u221d phylo_corrected_score (0.146\u20131.769). Module blocks stacked vertically in an order that minimises cross-module edge length.",
+   "data_source": "results/phylo_corrected_candidates.csv (all 15 columns); node set from intermediate/consensus_scope_clusters.csv (513) plus the 6 unassigned endpoints; n_transcripts per cluster from a groupby on /Users/wangyanz/Desktop/Project/sequence_design/data/identified_motifs_with_clusters.0513.parquet (motif_cluster, sequence_id)",
+   "precompute_needed": "YES \u2014 node (x, y). No node-level coordinates exist anywhere on disk, and averaging the pair-level UMAP provably fails to separate M1/M2/M5/M6. Run one seeded force layout with per-module centroid attractors and a protein-left/UTR-right constraint at bake time; port order_modules() from motif_pair_network/node_select.py for the block order.",
+   "interactions": [
+    "click node or edge \u2192 inspector",
+    "hover \u2192 1-hop neighbourhood highlight, rest dimmed to 15%",
+    "zoom/pan, fit-to-view",
+    "drag in an opt-in 'live force' mode",
+    "keyboard focus traversal in module order"
+   ],
+   "library": "d3-force (bake) + d3-zoom, or Plotly go.Scattergl + segment traces",
+   "render_tech": "SVG",
+   "effort": "XL",
+   "priority": "must",
+   "prior_art": "STRING network view; Cytoscape bipartite layout; manuscript Fig 3e",
+   "why_it_earns_its_place": "It is the requirement. 519 nodes / 2,620 edges is comfortably within SVG, and SVG buys per-element hit-testing, focus rings and CSS hover for free \u2014 all of which the click-to-detail requirement needs."
+  },
+  {
+   "id": "R3-07",
+   "name": "Frozen-layout provenance note",
+   "what_it_shows": "That node positions come from a build-time force layout with a fixed seed, and that distance in this graph carries no meaning.",
+   "encoding": "One muted line under the legend: 'Positions are a seeded force layout computed once at build time. Distance and angle are not meaningful; only the links are.'",
+   "data_source": "the bake manifest's layout seed and parameters",
+   "interactions": [
+    "hover \u2192 the exact layout parameters and seed"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Readers arriving from a UMAP figure will assume proximity means similarity. It does not, and there is no honest way to make it mean anything here. Say so."
+  },
+  {
+   "id": "R3-08",
+   "name": "Module drill-down bipartite (ordered two-column)",
+   "what_it_shows": "One module as two ordered columns, protein left and UTR right \u2014 the published Fig 3e arrangement. Max 133 nodes (M3).",
+   "encoding": "Nodes ordered within each column by degree or by the farthest-first composition ordering; edges as Bezier curves; node labels outside the columns coloured by region (5'UTR #0072B2, 3'UTR #A85A00, protein black \u2014 the deliberate second channel used in the published figure).",
+   "data_source": "modules.json member lists + the intra-module subset of results/phylo_corrected_candidates.csv (M1 774, M2 409, M3 385, M4 123, M5 126, M6 43 edges)",
+   "interactions": [
+    "click node/edge \u2192 inspector",
+    "toggle 'show this module's cross-module edges as stubs' (M1 has 353 outgoing, M4 only 12)",
+    "reorder columns by degree / score / composition"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "prior_art": "manuscript Fig 3e (24_bipartite_pruned_ordered.py)",
+   "why_it_earns_its_place": "Densities of 0.087\u20130.296 mean a module subgraph is dense but small; this is the one level where every edge can be drawn without occlusion, and it is the level the manuscript figure is drawn at."
+  },
+  {
+   "id": "R3-09",
+   "name": "'As published (Fig 3e)' 52-node preset",
+   "what_it_shows": "Exactly the 52 nodes drawn in the printed figure (25 protein, 19 utr3, 8 utr5) and the 113 edges induced among them \u2014 40 of which are cross-module.",
+   "encoding": "The R3-08 arrangement restricted to the preset node set; a caption naming the panel and the selection method (STREME-significance gating plus farthest-first diversity).",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/manuscript/main_figures_code/figure3_4/motif_pair_network/intermediate/bipartite_nodes_all6.csv (52 rows: cluster, module, region)",
+   "interactions": [
+    "one-click preset from the declutter menu",
+    "'expand to all 519' with a count of what appears"
+   ],
+   "library": "reuses R3-08",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "113 edges over 52 nodes at density 0.167 is a genuinely readable picture, and it is the picture the reader already saw in the paper. It is the cheapest possible anti-hairball measure and it builds trust by matching the figure."
+  },
+  {
+   "id": "R3-10",
+   "name": "Node glyph \u2014 base mark",
+   "what_it_shows": "Region, module and size in one mark, keeping region a channel independent of module exactly as the published figure does.",
+   "encoding": "Circle = protein cluster, square = UTR cluster (shape = region); fill = module colour from the four-script MCOL agreement (M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73); radius \u221d sqrt(n_transcripts). 5'UTR vs 3'UTR is NOT encoded in fill (it is in the label colour, R3-13) so module never competes with region.",
+   "data_source": "consensus_scope_clusters.csv (cluster, module, region); n_transcripts from identified_motifs_with_clusters.0513.parquet groupby; palette from /Users/wangyanz/Desktop/Project/sequence_design/manuscript/main_figures_code/_shared/manuscript_style.py",
+   "interactions": [
+    "hover \u2192 hovercard",
+    "click \u2192 node inspector",
+    "focus ring on keyboard traversal"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Three simultaneous encodings on one mark, none of them redundant. Area must be sqrt-scaled \u2014 the raw n_transcripts range (52\u20133,078) is 59\u00d7 and a linear radius would exaggerate it 3,500\u00d7."
+  },
+  {
+   "id": "R3-11",
+   "name": "Node glyph \u2014 inline consensus logo",
+   "what_it_shows": "The cluster's actual motif on the node itself, so the network reads as sequence biology rather than abstract topology. This is the defining feature of manuscript Fig 3e.",
+   "encoding": "A 70\u00d722 px information-content logo attached to the node (outside the column, on the far side from the edges), letters scaled by bits, nucleotides A #009E73 / C #0072B2 / G #E69F00 / U #D55E00, amino acids by the examples_lib aacol scheme. RNA alphabet (U) always \u2014 storage is DNA.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/manuscript/main_figures_code/figure3_4/motif_pair_network/intermediate/consensus_repertoire.pkl \u2192 per cluster motifs[].pwm (w\u00d74 RNA, w\u00d720 protein), w, nsites, evalue, consensus, coverage",
+   "precompute_needed": "PARTIAL \u2014 PWMs exist for 451 of the 519 network nodes; export to JSON rounded to 4 dp (~0.56 MB). The other 68 nodes need R3-14. Optionally close the gap first by running STREME on the never-run clusters using windows_fasta()/run_streme() from 16_consensus_repertoire.py.",
+   "interactions": [
+    "hover a letter stack \u2192 per-position probabilities",
+    "cycle a node's multiple consensus (median 2, max 10)",
+    "toggle logos off at low zoom (semantic zoom)"
+   ],
+   "library": "hand-rolled SVG text-glyph renderer (~120 lines)",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "prior_art": "MEME/STREME logo; manuscript Fig 3e node glyphs",
+   "why_it_earns_its_place": "The requirement says 'with motif consensus'. A logo drawn from the real PWM, rather than a bare consensus string, is the difference between the portal and a topology diagram \u2014 and drawing it from the PWM rather than stacking member strings is mandatory because only 32 of 900 clusters have \u226550% of members at the modal length."
+  },
+  {
+   "id": "R3-12",
+   "name": "Node glyph \u2014 consensus coverage bar (the honesty mark)",
+   "what_it_shows": "What fraction of the cluster's members the displayed consensus actually matches, printed next to every logo it is attached to.",
+   "encoding": "A 40 px bar from 0 to 1 with the value; bars below 0.25 rendered in a warning tint and captioned 'describes a minority of this cluster'.",
+   "data_source": "intermediate/consensus_meta.csv columns coverage, carriers (1,226 rows; coverage median 0.365, 418 rows below 0.25; utr5_0004's headline consensus is 0.212 over 51 carriers)",
+   "interactions": [
+    "hover \u2192 'coverage = fraction of this cluster's instances matched at \u22650.5 bits/position; carriers = genes containing it'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A PWM logo is read as 'the site in your gene'. For a third of the consensus in this dataset that reading is wrong. This 40-pixel bar is the cheapest correction of the single most likely misreading in the whole portal, and no candidate design made it mandatory on the node glyph."
+  },
+  {
+   "id": "R3-13",
+   "name": "Node glyph \u2014 positional histogram sparkline",
+   "what_it_shows": "Where along its region this cluster's motifs sit (20 bins of relative position) \u2014 what actually distinguishes cap-proximal utr5_0079 from Kozak-proximal utr5_0090 (median_pos 0.791).",
+   "encoding": "20-bar micro-histogram, 60\u00d714 px, with a median tick; axis ends labelled 5'/3' for UTR nodes and N/C for protein nodes.",
+   "data_source": "computed as relpos = (motif_start + motif_end)/2 / region_length by joining identified_motifs_with_clusters.0513.parquet to GRCh37_latest_rna_sequence_pairs_long_transcript.parquet (verified 18,093/18,093 join, 0 out-of-range)",
+   "precompute_needed": "YES \u2014 the on-disk cache intermediate/streme_pos_cache_all6.pkl covers only 142 of the 519 network nodes. Recompute for all 900 (\u224884 KB JSON) and validate against the 142 cached pos_hist / median_pos arrays before shipping.",
+   "interactions": [
+    "hover a bin \u2192 count and position range",
+    "click \u2192 member instances in that positional band"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "prior_art": "manuscript Fig 3e positional histograms under each logo",
+   "why_it_earns_its_place": "It is the second half of the Fig 3e node glyph and it carries a claim the logo cannot: position is what makes 'Kozak' and 'cap-proximal' checkable rather than asserted."
+  },
+  {
+   "id": "R3-14",
+   "name": "Node glyph \u2014 no-consensus fallback mark",
+   "what_it_shows": "The 68 network nodes with no significant STREME motif, shown as a deliberate state rather than a blank slot.",
+   "encoding": "A hatched placeholder the same size as a logo, containing the 3 most frequent literal member strings in mono type with counts, plus the caption 'no significant STREME motif \u2014 most frequent member sequences'.",
+   "data_source": "identified_motifs_with_clusters.0513.parquet column motifs, value_counts within motif_cluster",
+   "precompute_needed": "YES \u2014 top-k member strings per cluster, one groupby",
+   "interactions": [
+    "click a string \u2192 instances carrying it"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "13% of nodes would otherwise render as an empty rectangle in the middle of a network of logos, which reads as a bug rather than as a result."
+  },
+  {
+   "id": "R3-15",
+   "name": "Node label \u2014 three-tier naming with provenance badge",
+   "what_it_shows": "A human-readable name on every node, and where that name came from.",
+   "encoding": "Name plus a small tier badge: tier 1 curated (37 clusters), tier 2 top FDR<0.05 enriched term (308 of the 519 network nodes qualify), tier 3 synthesised from consensus + composition + size. Label text colour encodes region (5'UTR #0072B2, 3'UTR #A85A00, protein black).",
+   "data_source": "tier 1 intermediate/cluster_term_labels.csv (65 rows / 37 clusters: display, source, fold, example_genes); tier 2 intermediate/cluster_term_enrichment.csv.gz top row by fdr_cluster after de-duplicating on (cluster, source, display); tier 3 consensus_meta.csv consensus + base composition from the motif strings",
+   "precompute_needed": "YES \u2014 de-duplication is mandatory: (cluster, display) is duplicated in 17,056 groups because MobiDB provenance keys collapse to one string, so prot_0072's top three all read 'phase separation (curated)' unless collapsed.",
+   "interactions": [
+    "hover the badge \u2192 how this name was derived and its statistics",
+    "semantic zoom: labels appear only above a zoom threshold or for selected/hub nodes"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Only 199 of 201 protein nodes but 109 of 318 UTR nodes have a significant term. Without tier 3, two thirds of the RNA side of the network \u2014 the novel half \u2014 renders as bare ids like 'utr3_0342'."
+  },
+  {
+   "id": "R3-16",
+   "name": "Node hovercard with mini-glyphs",
+   "what_it_shows": "Everything needed to decide whether to click: logo, coverage, positional sparkline, degree, n_genes, module, top term.",
+   "encoding": "240 px dark card containing a real mini-logo strip and a two-row stat table \u2014 a mini-visualisation, not a text tooltip.",
+   "data_source": "consensus_repertoire.pkl, consensus_meta.csv, the recomputed positional histogram, the per-cluster size groupby, cluster_term_enrichment.csv.gz top row",
+   "interactions": [
+    "appears after 120 ms hover or on keyboard focus",
+    "click-through to the inspector"
+   ],
+   "library": "hand-rolled SVG inside an HTML card",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "With 519 nodes, the cost of a wrong click is a lost train of thought. A hovercard that already shows the logo removes most clicks entirely."
+  },
+  {
+   "id": "R3-17",
+   "name": "Node degree ring",
+   "what_it_shows": "How connected a node is, without inflating its area (which already encodes gene count).",
+   "encoding": "A partial arc around the node glyph, sweep \u221d degree on a fixed 0\u201362 scale shared by both sides so a protein hub at 62 and a UTR hub at 39 are directly comparable.",
+   "data_source": "degree computed from results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "hover \u2192 'degree 62 of a maximum 62 (prot_0223)'"
+   ],
+   "library": "hand-rolled SVG arc",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Degree and gene count are genuinely different questions and both matter; separating them into area and arc keeps the encoding honest instead of overloading size."
+  },
+  {
+   "id": "R3-18",
+   "name": "Node evidence-completeness dots",
+   "what_it_shows": "Whether a node has a logo, a significant term, a consensus pair on any of its edges, and a curated label \u2014 the four things a reader is about to look for.",
+   "encoding": "Four 4-px dots under the node label, filled or hollow; hollow means 'not available', never 'zero'.",
+   "data_source": "derived flags over consensus_repertoire.pkl (451/519 with a PWM), cluster_term_enrichment.csv.gz (308/519 with FDR<0.05), consensus_pair_scores.csv.gz, cluster_term_labels.csv (37)",
+   "precompute_needed": "YES \u2014 one small per-node flag table",
+   "interactions": [
+    "hover \u2192 the corpus fraction behind each flag"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Coverage in this dataset is uneven enough (13% of nodes have no logo, 41% no significant term) that a reader who clicks blind will hit an empty panel often. Four dots turn that into an informed choice."
+  },
+  {
+   "id": "R3-19",
+   "name": "Protein-node pLDDT sparkline",
+   "what_it_shows": "For protein clusters only, the structural-confidence distribution of the cluster's motifs \u2014 the ordered-domain vs IDR axis (per-cluster medians span 0.215\u20130.972).",
+   "encoding": "A 50\u00d712 px density strip over a FIXED 0\u20131 domain (not 0\u2013100), with the cluster median ticked and 0.5 marked.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/sequence_annotation/sequence_annotation_human/data/processed/motif_full_annotations.parquet column plddt, protein rows only (254,466 non-null; null for every UTR row)",
+   "precompute_needed": "YES \u2014 per-cluster pLDDT quantiles",
+   "interactions": [
+    "hover \u2192 median and quartiles"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It separates M1/M5's IDR-flavoured protein clusters from M3/M6's structured ones on the glyph itself, and it must be absent on the 318 UTR nodes rather than rendered empty."
+  },
+  {
+   "id": "R3-20",
+   "name": "UTR-node base-composition micro-bar",
+   "what_it_shows": "For UTR clusters, the A/C/G/U composition that makes 'AU-rich' or 'GC-rich' checkable \u2014 the quantitative backbone of the M1 vs M2 story (M1 utr3 clusters mean GC 0.344, M2 0.497).",
+   "encoding": "A single 50-px stacked bar in nucleotide colours with GC% printed.",
+   "data_source": "composition computed from motif_full_annotations.parquet motifs strings grouped by motif_cluster; cross-check against figure3_4/tf_modules/intermediate/utr_composition.csv (fA, fC, fG, fT, GC, ARE_per_knt, polyU_per_knt, PAS_per_seq) for the 140 clusters it covers",
+   "precompute_needed": "YES \u2014 one groupby over the motif strings",
+   "interactions": [
+    "hover \u2192 exact fractions and, where available, ARE and polyU density"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the RNA-side analogue of pLDDT and it is the only node-level property that distinguishes the two TF modules, which are otherwise identically coloured, identically shaped and adjacent in the graph."
+  },
+  {
+   "id": "R3-21",
+   "name": "Edge path \u2014 base mark",
+   "what_it_shows": "One gated association between a protein cluster and a UTR cluster.",
+   "encoding": "Curve from the protein node to the UTR node; width \u221d phylo_corrected_score (0.146\u20131.769) on a sqrt scale; a single neutral hue at low opacity so 2,620 overlapping strokes stay legible. Score is encoded ONCE \u2014 width only, never width AND colour, since phylo_corrected_score = MIp \u00d7 (1 \u2212 clade_concentration) \u00d7 log1p(n_indep_clades) already fuses three of the quantities a second channel would show.",
+   "data_source": "results/phylo_corrected_candidates.csv (protein, utr, phylo_corrected_score)",
+   "interactions": [
+    "hover \u2192 hovercard + both endpoints highlighted",
+    "click \u2192 edge inspector",
+    "dim to 8% when filtered out rather than removed"
+   ],
+   "library": "hand-rolled SVG path",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the requirement's other half. The width-only rule matters: double-encoding correlated statistics is the standard way network views overstate their evidence."
+  },
+  {
+   "id": "R3-22",
+   "name": "Edge consensus-tier styling (solid vs dashed)",
+   "what_it_shows": "Whether an edge is backed by a consensus-level pair or only by cluster-level co-occurrence: 1,430 of 2,620 have a consensus pair, and ZERO of the 757 cross-module edges do.",
+   "encoding": "Solid stroke = at least one consensus-pair row; dashed = cluster-level only. Legend states the counts explicitly.",
+   "data_source": "intermediate/consensus_pair_scores.csv.gz filtered to cl_passes (6,890 rows covering 1,430 cluster pairs)",
+   "precompute_needed": "YES \u2014 a per-edge boolean plus the top 3 consensus pairs per covered edge (~3,599 rows)",
+   "interactions": [
+    "legend click \u2192 highlight all dashed edges",
+    "hover \u2192 'no consensus pair was computed for cross-module edges'"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "prior_art": "manuscript Fig 3e solid/dashed edge tiering",
+   "why_it_earns_its_place": "It reproduces the published figure's own encoding, and it makes a systematic data gap visible on the canvas instead of only inside a panel a reader may never open."
+  },
+  {
+   "id": "R3-23",
+   "name": "Cross-module edge styling and toggle",
+   "what_it_shows": "The 757 edges (28.9%) that cross module boundaries, on by default, with their count always printed.",
+   "encoding": "Cross-module edges drawn in a lighter stroke with a subtle dash offset; intra-module edges dim to 15% when the reader isolates cross-module, rather than disappearing.",
+   "data_source": "edges joined to the modules.json membership map; 1,860 intra / 757 cross / 3 unassigned",
+   "interactions": [
+    "toggle on/off; turning off prints 'hiding 757 of 2,620 edges (28.9%), including the M5-protein \u00d7 M1-UTR block the manuscript discusses'",
+    "isolate a single module pair"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Six clean bipartite panels would erase nearly a third of the result and the one cross-module observation the paper itself makes (M1-M5, 192 undirected edges, the highest mean score of any cross pair at 0.325)."
+  },
+  {
+   "id": "R3-24",
+   "name": "Edge hovercard with inline gate sparkline",
+   "what_it_shows": "Both endpoint names, phylo_corrected_score, and the four gate values against their thresholds \u2014 before committing to a click.",
+   "encoding": "260 px card containing four 40-px bullet marks (clade_concentration vs 0.35, n_indep_clades vs 8, npmi_mip_APC vs 0.10, co_count vs 10) plus frac_co_ZNF as a fifth read-only bar.",
+   "data_source": "results/phylo_corrected_candidates.csv columns clade_concentration, n_indep_clades, npmi_mip_APC, co_count, frac_co_ZNF, n_indep_families",
+   "interactions": [
+    "hover; pin with a click"
+   ],
+   "library": "hand-rolled SVG in an HTML card",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The gate is the entire scientific defence of this graph. Putting it on hover \u2014 not two clicks deep \u2014 is what stops the view reading as a claim about binding."
+  },
+  {
+   "id": "R3-25",
+   "name": "Edge encoding selector with an npmi_raw guard",
+   "what_it_shows": "Lets the reader re-encode edge width by phylo_corrected_score, npmi_mip_APC, co_count or n_indep_clades \u2014 and refuses to make npmi_raw the default.",
+   "encoding": "Segmented control; selecting npmi_raw shows an inline warning naming the measured result that 25 of the top 30 raw-NPMI pairs are ZNF clade artifacts, and tints the canvas border.",
+   "data_source": "results/phylo_corrected_candidates.csv; the warning text and counts from results/RAW_top30_annotated.csv verdict column (25 'ZNF clade artifact', 4 'single-clade / weak', 1 'survives')",
+   "interactions": [
+    "switch encoding; the legend ramp and all readouts follow",
+    "the warning cannot be permanently dismissed"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Offering raw NPMI without a guard is the single most likely way this portal embarrasses the paper \u2014 it regenerates exactly the leaderboard the analysis exists to remove."
+  },
+  {
+   "id": "R3-26",
+   "name": "Edge-weight legend ramp with distribution",
+   "what_it_shows": "What edge width means, and where the drawn edges sit in the score distribution.",
+   "encoding": "A width ramp with three labelled reference widths (0.15, 0.28 median, 1.77 max) sitting on top of a 40-bin histogram of the 2,620 scores, so the reader sees that the distribution is heavily right-skewed and that most edges are near the floor.",
+   "data_source": "results/phylo_corrected_candidates.csv phylo_corrected_score",
+   "interactions": [
+    "brush the histogram \u2192 filters edges",
+    "hover \u2192 count in that bin"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "A width legend without the distribution invites the reader to assume the thick edges are typical. Median 0.276 against max 1.769 says otherwise."
+  },
+  {
+   "id": "R3-27",
+   "name": "Seriated bipartite matrix heatmap (201 \u00d7 318)",
+   "what_it_shows": "The same graph as a reorderable adjacency matrix \u2014 63,918 cells, 2,620 filled, 4.10% dense \u2014 with module blocks visible as dense diagonal squares and the cross-module edges as off-diagonal spatter.",
+   "encoding": "Rows = protein clusters, columns = UTR clusters, ordered by module then by within-module seriation; cell fill = phylo_corrected_score on a sequential ramp, empty = no gated edge; thin rules delimit the six module blocks; a marginal degree bar on each axis.",
+   "data_source": "results/phylo_corrected_candidates.csv, or preferably the dense float64 matrices in /Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v4_0621/results/corrected_score_matrices.npz (pcl 300, ucl 600, npmi_mip, co, fam_support, frac_co_znf \u2014 verified: its `co` reproduces co_count for 500/500 edges) sliced to the 201\u00d7318 gated submatrix",
+   "precompute_needed": "YES \u2014 the row/column seriation order (module blocks + within-block ordering by degree or by a barycentre/cross-count minimisation)",
+   "interactions": [
+    "click a cell \u2192 edge inspector",
+    "hover a row/column \u2192 highlights that node's whole row/column",
+    "toggle the encoded quantity (score / npmi_mip_APC / co_count / n_indep_clades / frac_co_ZNF)",
+    "reorder by module, degree, or seriation"
+   ],
+   "library": "canvas 2D for the cells, SVG for the axes and rules",
+   "render_tech": "hybrid",
+   "effort": "L",
+   "priority": "must",
+   "prior_art": "Bertin's reorderable matrix; matrix view in Cytoscape/Gephi; Ghoniem, Fekete & Castagliola on matrices vs node-link",
+   "why_it_earns_its_place": "At 4.1% density and 519 nodes this is the representation that CANNOT hairball, and it is the only one where a reader can verify that a module is dense and that cross-module edges are not. It also answers the question node-link answers worst \u2014 'is this pair present?' \u2014 in constant time."
+  },
+  {
+   "id": "R3-28",
+   "name": "Full 300 \u00d7 600 grid matrix with gate mask",
+   "what_it_shows": "The entire scored space \u2014 180,000 protein \u00d7 UTR pairs \u2014 with the 2,620 survivors picked out, so the reader sees how small the result is inside what was tested.",
+   "encoding": "Canvas heatmap of npmi_mip_APC over the full grid (distribution min \u22120.840, median \u22120.037, p90 0.059, p99 0.183, max 0.875) with the 2,620 gated cells outlined; a second mode masks everything that fails the gate to grey, and a third shows co_count with the 13,385 zero-co-occurrence cells hatched.",
+   "data_source": "results/corrected_score_matrices.npz \u2014 dense npmi_raw / npmi_mip / npmi_weighted / npmi_family / perm_z / perm_p / co / fam_support / frac_co_znf, all 300\u00d7600 float64, with pcl and ucl label arrays. No reshaping or joining needed.",
+   "interactions": [
+    "zoom into a module block",
+    "toggle the encoded matrix",
+    "toggle gate mask on/off \u2014 the animation of 180,000 \u2192 2,620 is the point",
+    "click a cell \u2192 pair detail, including sub-threshold pairs marked as such"
+   ],
+   "library": "canvas 2D",
+   "render_tech": "Canvas",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "This asset exists on disk, fully precomputed, and no candidate design found it. Toggling the gate mask is the most direct possible demonstration that the network is 1.6% of what was tested, and it costs almost nothing to build."
+  },
+  {
+   "id": "R3-29",
+   "name": "Module block matrix (6 blocks, zoomable)",
+   "what_it_shows": "A middle zoom between the 6\u00d76 summary and the 201\u00d7318 detail: six on-diagonal blocks at their true densities (M1 0.296 down to M3 0.087) plus the off-diagonal cross-module rectangles.",
+   "encoding": "A 6\u00d76 arrangement of sub-matrices with true relative cell sizes, so M1's 39\u00d767 dense block and M6's 14\u00d718 sparse block are visually comparable.",
+   "data_source": "same as R3-27",
+   "interactions": [
+    "click a block \u2192 zoom to the full-resolution submatrix",
+    "hover \u2192 density and edge count"
+   ],
+   "library": "canvas 2D",
+   "render_tech": "Canvas",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "Density varies 3.4\u00d7 between modules and that difference is a real result (M1 is a tightly interlocked programme; M3 is a broad, loosely coupled one). Neither the meta graph nor the full matrix shows it directly."
+  },
+  {
+   "id": "R3-30",
+   "name": "Bipartite arc diagram (single axis)",
+   "what_it_shows": "All 519 nodes on one horizontal axis ordered by module, with edges as arcs above (protein\u2192UTR) \u2014 a linear ordering that makes cross-module edges literally long.",
+   "encoding": "Node ticks coloured by module and shaped by region along the axis; arcs with height \u221d span and opacity \u221d score; cross-module arcs necessarily reach across module boundaries so 28.9% cross-linking becomes a visual fact.",
+   "data_source": "results/phylo_corrected_candidates.csv + the module ordering",
+   "precompute_needed": "YES \u2014 the linear node ordering (reuse the min-linear-arrangement in node_select.order_modules(), which was built for exactly this)",
+   "interactions": [
+    "click an arc \u2192 edge inspector",
+    "hover a tick \u2192 its arcs highlight",
+    "collapse to module-level arcs"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "prior_art": "Wattenberg arc diagrams; hierarchical edge bundling papers",
+   "why_it_earns_its_place": "It is the one layout where 'this module is self-contained' and 'this module leaks' are the same visual property \u2014 arc length. For M4 (only 12 cross edges) versus M1 (353) that contrast is the story."
+  },
+  {
+   "id": "R3-31",
+   "name": "Module-flow Sankey",
+   "what_it_shows": "Edges as flow from protein modules (left) through to UTR modules (right), preserving the directional asymmetry (M1p\u2192M2u 178 vs M2p\u2192M1u 66).",
+   "encoding": "Six left nodes (protein side of each module) and six right nodes (UTR side), 36 possible ribbons, width \u221d edge count; ribbons coloured by source module.",
+   "data_source": "the directional 6\u00d76 crosstab of results/phylo_corrected_candidates.csv through modules.json",
+   "precompute_needed": "YES \u2014 the directional 6\u00d76 matrix",
+   "interactions": [
+    "click a ribbon \u2192 those edges in the canvas",
+    "hover \u2192 count and mean score"
+   ],
+   "library": "d3-sankey or hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the only representation that separates 'M1 protein motifs pair with M2 UTR motifs' from the reverse, and the asymmetry is 178 versus 66 \u2014 far too large to average away."
+  },
+  {
+   "id": "R3-32",
+   "name": "Hive plot (three axes: protein / 3'UTR / 5'UTR)",
+   "what_it_shows": "The graph laid out on three fixed axes with nodes positioned by degree, which removes layout arbitrariness entirely and separates the two RNA regions.",
+   "encoding": "Axis 1 protein (201 nodes), axis 2 utr3 (251), axis 3 utr5 (67); radial position \u221d degree; edges as Bezier curves between axes; node colour = module.",
+   "data_source": "results/phylo_corrected_candidates.csv + node region from the cluster prefix",
+   "interactions": [
+    "hover an axis segment \u2192 those nodes",
+    "toggle axis ordering (degree / module / n_genes)"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "nice",
+   "prior_art": "Krzywinski et al., hive plots for network comparison",
+   "why_it_earns_its_place": "Hive plots exist precisely to defeat the 'my force layout looks different from yours' problem, and they would make one measured fact immediately visible: 67 5'UTR clusters carry 596 of the 2,620 edges at a higher median degree than the 251 3'UTR clusters. That asymmetry is invisible in every other layout."
+  },
+  {
+   "id": "R3-33",
+   "name": "Pair UMAP scatter (interactive Fig 3c)",
+   "what_it_shows": "All 180,000 scored pairs in the published embedding with the 2,620 gated pairs lit \u2014 the graph's edges placed in the space of everything that was tested.",
+   "encoding": "Canvas scatter, background pairs at 3 px / 0.15 alpha, gated pairs at 6 px coloured by module or by npmi_mip_APC on a diverging ramp; a fourth colour mode by frac_co_ZNF visually separates the artifact cloud.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v3_0515/07.umap_vis/00.build_embeddings_model_embeddings/results/cca_sweep/cca_winner_umap.npy (180000\u00d72 float32) row-aligned to .../results/embeddings/row_index.csv (row, protein, utr); joined to results/protein_utr_FINAL_scores.csv on (protein, utr) \u2014 VERIFIED 2,620/2,620 gated pairs receive coordinates",
+   "precompute_needed": "YES \u2014 quantise xy to uint16 over the bounding box (max error 0.000234 units) plus uint16 npmi and uint8 module channels \u2248 0.99 MB gzipped; ALSO record the source path and mtime, because this file lives in the v3 analysis tree that nothing in the v4 pipeline regenerates",
+   "interactions": [
+    "brush/lasso \u2192 the selected pairs fill a linked edge table",
+    "hover via a quadtree \u2192 pair tooltip",
+    "click \u2192 edge inspector",
+    "colour-by switch"
+   ],
+   "library": "canvas 2D + d3-quadtree + d3-zoom",
+   "render_tech": "Canvas",
+   "effort": "L",
+   "priority": "should",
+   "prior_art": "manuscript Fig 3c",
+   "why_it_earns_its_place": "It is the only view that shows the network's edges in the context of the 177,380 pairs that did not survive, and it is already computed. SVG is not an option at 180,000 points."
+  },
+  {
+   "id": "R3-34",
+   "name": "Degree-rank plot (both sides)",
+   "what_it_shows": "The degree distributions of the protein and UTR sides on one log-rank axis, naming the hubs.",
+   "encoding": "Two monotone curves (protein max 62, UTR max 39), the top 5 of each labelled, with median lines at 8 and 5.",
+   "data_source": "degree computed from results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "click a point \u2192 focus that node in the canvas",
+    "brush a degree band \u2192 filter the canvas"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It quantifies the hairball: top-10 protein hubs touch 20.5% of edges, top-50 touch 64.1%. That is the number that justifies the degree-cap control, and showing it makes the control's effect predictable."
+  },
+  {
+   "id": "R3-35",
+   "name": "Hierarchical edge bundling toggle",
+   "what_it_shows": "The same edges bundled along the module hierarchy, trading individual-edge readability for legible module-to-module flow.",
+   "encoding": "Radial or column layout with edges routed through module-level control points; bundling strength on a slider from 0 (straight) to 0.95.",
+   "data_source": "results/phylo_corrected_candidates.csv + module membership as the bundling hierarchy",
+   "interactions": [
+    "bundling-strength slider",
+    "hovering an edge un-bundles it and its neighbours"
+   ],
+   "library": "d3-hierarchy + d3-line curveBundle, or hand-rolled",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "prior_art": "Holten 2006 hierarchical edge bundling",
+   "why_it_earns_its_place": "With 757 cross-module edges the straight-line view is at its worst exactly where the interesting cross-links are. Bundling is the standard fix, and it must be a toggle rather than a default because bundling hides individual edges."
+  },
+  {
+   "id": "R3-36",
+   "name": "Six-panel small-multiples module grid",
+   "what_it_shows": "All six module bipartite subgraphs at once, at a shared scale, so their sizes and densities are directly comparable.",
+   "encoding": "2\u00d73 grid of miniature bipartite panels (largest is M3 at 133 nodes / 385 edges), each with its own header stats; identical node-size and edge-width scales across panels.",
+   "data_source": "modules.json membership + the intra-module subsets of results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "click a panel \u2192 full-screen module drill-down",
+    "shared hover: hovering a node in one panel highlights the same module colour everywhere"
+   ],
+   "library": "reuses R3-08 six times",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Comparison is a first-class question here ('is M4 like M6?') and small multiples answer it better than any interactive toggle. All six fit on a laptop screen because the largest is 133 nodes."
+  },
+  {
+   "id": "R3-37",
+   "name": "Node partner rail (adjacency strip)",
+   "what_it_shows": "For a selected node, all of its partners as a single ordered strip \u2014 a one-dimensional replacement for reading edges out of a hairball.",
+   "encoding": "A horizontal rail of partner ticks sorted by phylo_corrected_score, each tick coloured by the partner's module and sized by score; a divider marks where the partner's module changes.",
+   "data_source": "results/phylo_corrected_candidates.csv filtered to the selected node",
+   "interactions": [
+    "click a tick \u2192 edge inspector",
+    "hover \u2192 partner name and score",
+    "toggle sort (score / co_count / clades / module)"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Median degree is 8 but hubs reach 62; tracing 62 edges out of a node-link diagram is impossible and out of a rail is trivial. It also makes the cross-module fraction of one node's partners immediately visible."
+  },
+  {
+   "id": "R3-38",
+   "name": "Ego subgraph focus mode (1-hop / 2-hop)",
+   "what_it_shows": "Only the selected node, its partners, and optionally their partners \u2014 the standard escape from a hairball when arriving from R1 or R2 with a specific cluster.",
+   "encoding": "Radial layout with the focus node centred, ring 1 = partners coloured by module, ring 2 = second-degree neighbours at reduced opacity; a node-count readout for each ring.",
+   "data_source": "results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "1-hop / 2-hop toggle with counts",
+    "re-centre on any node",
+    "'return to full graph' preserving the selection"
+   ],
+   "library": "hand-rolled SVG + d3-force radial constraint",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "A reader arriving at ?focus=utr3_0215 wants that node's two partners, not 2,620 edges. This is the primary entry path from R2 and it must not dump the reader into the full canvas."
+  },
+  {
+   "id": "R3-39",
+   "name": "Score threshold slider with live node/edge counts",
+   "what_it_shows": "How the graph thins as the edge-weight floor rises, with the surviving counts printed before the reader commits.",
+   "encoding": "Range slider over phylo_corrected_score (0.146\u20131.769) with the score histogram behind the track and marks at the measured breakpoints: 50 edges\u219250 nodes at 0.790, 200\u2192127 at 0.558, 500\u2192210 at 0.414, 1000\u2192301 at 0.312.",
+   "data_source": "results/phylo_corrected_candidates.csv phylo_corrected_score",
+   "interactions": [
+    "drag \u2192 clientside re-filter, no server round-trip",
+    "snap to the labelled top-N presets"
+   ],
+   "library": "none (plus the R3-26 histogram)",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the main anti-hairball control and the counts make its effect predictable. It MUST carry the note that it re-filters edges only and does not re-run Louvain, so module assignments never change under it."
+  },
+  {
+   "id": "R3-40",
+   "name": "Strict / suggestive tier toggle",
+   "what_it_shows": "The manuscript's own gate (2,620 edges, 519 nodes) against the labelled relaxed superset (npmi_mip_APC > 0.10 \u2192 7,210 edges, 835 nodes, of which 4,590 fail the gate).",
+   "encoding": "Two-segment control with both counts baked into the labels; relaxed-only edges rendered in a distinct dashed, desaturated style and every one of them carries a 'not phylogenetically independent' tag in tooltips and panels.",
+   "data_source": "results/protein_utr_FINAL_scores.csv columns passes_phylo_filter and npmi_mip_APC (tiers nest exactly: every passing pair has npmi_mip_APC \u2265 0.1001)",
+   "precompute_needed": "YES \u2014 the 7,210-row relaxed slice, ~0.74 MB",
+   "interactions": [
+    "toggle; the canvas gains 316 nodes and 4,590 edges, and says so",
+    "the relaxed style cannot be turned off while relaxed is active"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "282 of 600 UTR clusters have no strict partner. Relaxing must be the reader's explicit choice, and it must look different \u2014 silently filling empty pages by lowering the threshold would misrepresent the paper's central statistical claim."
+  },
+  {
+   "id": "R3-41",
+   "name": "Sub-threshold ghost edges",
+   "what_it_shows": "For a selected node, its best non-passing partners drawn as faint ghosts, so 'no partner' is shown as a measured result rather than as missing data.",
+   "encoding": "Dotted, 20%-opacity edges to the top 5 sub-threshold partners, each labelled with the specific condition it failed.",
+   "data_source": "results/protein_utr_FINAL_scores.csv (all 180,000 pairs) filtered to the node, sorted by npmi_mip_APC, with passes_phylo_filter False",
+   "interactions": [
+    "toggle per selection, never global",
+    "hover \u2192 which of the four conditions failed and by how much"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "A node with zero partners looks broken. Showing what it almost had, and why that was rejected, converts an empty state into the portal's most educational moment."
+  },
+  {
+   "id": "R3-42",
+   "name": "Module isolation toggles",
+   "what_it_shows": "Which modules are on the canvas, with node and edge counts per module.",
+   "encoding": "Six checkboxes in module colours with live counts (M1 106 nodes / 774 intra edges \u2026 M6 32 / 43), plus an 'unassigned (6 nodes, 3 edges)' row.",
+   "data_source": "modules.json + results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "check/uncheck; edges with one endpoint hidden are dimmed rather than dropped, with a count of how many that is"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Module is the primary organising variable of the view; without per-module isolation the reader cannot answer any single-module question in the full canvas."
+  },
+  {
+   "id": "R3-43",
+   "name": "Region filter (3'UTR / 5'UTR / protein)",
+   "what_it_shows": "Splits the RNA side by region \u2014 251 utr3 nodes carrying 2,024 edges versus 67 utr5 nodes carrying 596.",
+   "encoding": "Three chips with counts; deselecting utr3 leaves a much smaller but hub-heavy 5'UTR graph.",
+   "data_source": "cluster prefix (verified perfectly consistent with region across all 889,215 motif rows)",
+   "interactions": [
+    "toggle; counts update"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "5'UTR and 3'UTR biology are different (Kozak/cap versus ARE/miRNA), and the 5'UTR subgraph is measurably denser per node. Merging them into one 'UTR' side hides that."
+  },
+  {
+   "id": "R3-44",
+   "name": "Evidence filters (clades, families, ZNF, co_count)",
+   "what_it_shows": "Filtering by the trust statistics rather than by the composite score.",
+   "encoding": "Four compact range sliders with their own mini-histograms and the gate threshold ticked: n_indep_clades (8\u201323), n_indep_families (9\u2013143), frac_co_ZNF (0\u20130.400), co_count (10\u2013272).",
+   "data_source": "results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "drag any slider \u2192 live edge count",
+    "one-click preset 'strongest evidence' (clades \u2265 15 and frac_co_ZNF = 0)"
+   ],
+   "library": "hand-rolled SVG sparkline + range inputs",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "phylo_corrected_score fuses these into one number; a sceptical reader wants to weight them themselves. Only 11 of 2,620 edges exceed frac_co_ZNF 0.30, and letting a reader discover that by filtering is more convincing than being told."
+  },
+  {
+   "id": "R3-45",
+   "name": "Content filters (has logo / has term / has consensus pair)",
+   "what_it_shows": "Restricting the canvas to nodes and edges whose detail panels will actually be populated.",
+   "encoding": "Three chips with counts: 451/519 nodes with a PWM, 308/519 with an FDR<0.05 term, 1,430/2,620 edges with a consensus pair.",
+   "data_source": "the per-node/per-edge completeness flags of R3-18 and R3-22",
+   "interactions": [
+    "toggle; a caption states how much of the graph is being hidden and why"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It lets an impatient reader see only the rich parts, while the counts prevent them mistaking the filtered view for the whole result."
+  },
+  {
+   "id": "R3-46",
+   "name": "Degree cap / hub declutter control",
+   "what_it_shows": "Suppresses the highest-degree nodes' edges, which is the most targeted anti-hairball measure available: capping at degree 20 removes the nodes that account for 35.9% (protein) and 25.0% (UTR) of all edges.",
+   "encoding": "A single 'max edges per node' slider (\u221e \u2192 5) that keeps each node's top-k edges by score and marks capped nodes with a '+n hidden' badge.",
+   "data_source": "results/phylo_corrected_candidates.csv",
+   "interactions": [
+    "drag; capped nodes badge the hidden count",
+    "click a badge \u2192 that node's full partner rail"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Score thresholding removes weak edges everywhere; degree capping removes clutter exactly where it is (prot_0223 at 62). Because it hides data, the '+n hidden' badge is mandatory."
+  },
+  {
+   "id": "R3-47",
+   "name": "Locate-a-cluster search",
+   "what_it_shows": "Where a named cluster sits, for readers arriving from R1 or R2 with a specific motif in mind.",
+   "encoding": "Search box with typeahead over the 900 cluster ids and their display names; the match pulses and the viewport eases to it.",
+   "data_source": "the per-cluster index (900 rows: cluster, region, module or null, name, counts)",
+   "interactions": [
+    "type-ahead; ?focus= deep link support",
+    "a cluster that is in none of the 519 network nodes returns an explicit 'this cluster has no gated partner' result, not an empty search"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "387 of 900 clusters are not in the network at all. Without this, arriving from a motif and finding nothing is indistinguishable from a broken search."
+  },
+  {
+   "id": "R3-48",
+   "name": "Declutter preset menu",
+   "what_it_shows": "One-click routes out of the hairball, each labelled with the resulting size.",
+   "encoding": "A menu of presets: 'As published (52 nodes, 113 edges)', 'Top 200 edges (127 nodes)', 'One module', 'Ego of the selected node', 'Matrix instead'.",
+   "data_source": "the measured top-N breakpoints and bipartite_nodes_all6.csv",
+   "interactions": [
+    "click a preset; the active filters appear as dismissable chips so the reader can see what a preset did"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The hairball is not solved by one control but by making the good views one click away. Naming the resulting node counts makes the choice informed."
+  },
+  {
+   "id": "R3-49",
+   "name": "Live counts readout",
+   "what_it_shows": "'Showing 519 of 519 nodes, 2,620 of 2,620 edges (757 cross-module)' \u2014 always visible.",
+   "encoding": "One line of monospace counts that changes as any control moves.",
+   "data_source": "the current filter state",
+   "interactions": [
+    "click a count \u2192 clears the filters that reduced it"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Every control in this view hides data. A permanent count is the only thing that stops a filtered graph being mistaken for the whole result."
+  },
+  {
+   "id": "R3-50",
+   "name": "Active-filter chips",
+   "what_it_shows": "The current filter state as individually dismissable chips, mirrored into the URL.",
+   "encoding": "Pills with an x plus a 'reset all'.",
+   "data_source": "view state",
+   "interactions": [
+    "dismiss one; reset all; the URL updates so a filtered graph is shareable and citable"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A network view that a reader cannot link to from a paper or a reviewer reply is a demo, not a resource."
+  },
+  {
+   "id": "R3-51",
+   "name": "Node inspector \u2014 identity header",
+   "what_it_shows": "Cluster id, region, module, three-tier name with tier badge, size (n_instances, n_transcripts, n_genes) and degree.",
+   "encoding": "Header block with module and region chips and a stat row.",
+   "data_source": "consensus_scope_clusters.csv, the per-cluster size groupby on identified_motifs_with_clusters.0513.parquet (network nodes: n_instances median 906, min 280, max 3,078; n_transcripts median 536, min 52)",
+   "interactions": [
+    "copy id; open the full cluster page (R2); locate in graph"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "'Clicking a node shows details' begins here."
+  },
+  {
+   "id": "R3-52",
+   "name": "Node inspector \u2014 full sequence logo with statistics",
+   "what_it_shows": "The node's STREME logo at readable size, with E-value, nsites, coverage and carriers printed beneath it.",
+   "encoding": "Information-content logo, bits axis labelled, plus a provenance line: 'STREME v5.5.9, E = 9.2e-14, 394 sites, coverage 0.511 of 566 members, 155 carrier genes'.",
+   "data_source": "consensus_repertoire.pkl (pwm, w, nsites, evalue, pvalue, consensus, coverage) + consensus_meta.csv (carriers)",
+   "interactions": [
+    "cycle a node's multiple consensus",
+    "hover a column \u2192 letter probabilities",
+    "download the PWM in MEME format and the logo as SVG"
+   ],
+   "library": "hand-rolled SVG logo renderer",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The requirement says 'with motif consensus'. Printing E-value and coverage next to it is what keeps it a measurement rather than a picture."
+  },
+  {
+   "id": "R3-53",
+   "name": "Node inspector \u2014 consensus repertoire list",
+   "what_it_shows": "All 1\u201310 consensus of the cluster with coverage and carrier counts, because a cluster is usually not one motif.",
+   "encoding": "Rows of mono consensus + coverage bar + carrier count, sorted by coverage; rows below 0.25 greyed with the warning label.",
+   "data_source": "consensus_meta.csv (cid, cluster, consensus, coverage, carriers) \u2014 1,226 rows, median 2 per cluster, max 10",
+   "interactions": [
+    "click a row \u2192 the logo above switches to that consensus",
+    "click carriers \u2192 that consensus's carrier gene list"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Showing only the top consensus implies a cluster is one motif. Median 2 and max 10 says otherwise, and the coverage spread across a cluster's own consensus is itself informative."
+  },
+  {
+   "id": "R3-54",
+   "name": "Node inspector \u2014 full positional histogram",
+   "what_it_shows": "The 20-bin positional distribution at readable size with the median printed and the direction labelled.",
+   "encoding": "Bar chart over relative position 0\u20131, median tick, axis ends 5'/3' or N/C, n_instances printed.",
+   "data_source": "the recomputed all-900 positional histogram (validated against the 142 in streme_pos_cache_all6.pkl: e.g. utr3_0215 median_pos 0.4441, n=566)",
+   "interactions": [
+    "click a bin \u2192 member instances in that band",
+    "overlay the region-wide background distribution"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the second Fig 3e glyph and the evidence behind every positional claim the module narratives make."
+  },
+  {
+   "id": "R3-55",
+   "name": "Node inspector \u2014 enrichment dot plot",
+   "what_it_shows": "The node's enriched annotation terms across all ten sources \u2014 the 'annotations' half of the requirement, on the node side.",
+   "encoding": "Dot rows: x = fold (log scale), y = term, size = k, colour = source (InterPro / MobiDB / eCLIP / PAR-CLIP / iCLIP-P / iCLIP-C / miR / ELM / IDPO / SignalP); FDR<0.05 rule drawn; non-significant terms plotted hollow and greyed to the left rather than omitted.",
+   "data_source": "intermediate/cluster_term_enrichment.csv.gz (260,572 rows covering all 900 clusters; columns cluster, region, source, term, k, n, K, N, fold, p, fdr_cluster, or_mh, fdr_global, fdr_cmh_cluster, display, informative)",
+   "precompute_needed": "YES \u2014 de-duplicate on (cluster, source, display) keeping min fdr_cluster, then cap at ~12 rows per cluster (measured: 4,096 rows / 1.27 MB JSON / 0.23 MB gzipped covers every cluster that has a significant term)",
+   "interactions": [
+    "source filter chips",
+    "hover \u2192 the full 2\u00d72 (k of n cluster genes, K of N=17,831 background)",
+    "toggle the authors' triple gate (fdr_cluster & fdr_global & fdr_cmh_cluster all < 0.05), which reduces coverage from 308 to 276 of the 519 nodes",
+    "click an InterPro term \u2192 interpro.ebi.ac.uk deep link via interpro_entry_map.csv"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "'Details including annotations' is the requirement's exact wording, and this is the only unit that delivers it at node level with auditable statistics attached."
+  },
+  {
+   "id": "R3-56",
+   "name": "Node inspector \u2014 no-significant-term state",
+   "what_it_shows": "The honest state for the 211 of 519 network nodes with no FDR<0.05 term \u2014 including the manuscript-featured utr5_0090, utr5_0096 and utr3_0215.",
+   "encoding": "Explicit heading 'No term passes FDR<0.05 for this cluster', then the top nominal-p terms greyed and labelled ns, then the instance-frequency fallback.",
+   "data_source": "cluster_term_enrichment.csv.gz unfiltered for that cluster",
+   "interactions": [
+    "expand to all rows"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Two thirds of the RNA-side nodes are in this state. An empty panel there would read as a broken portal instead of as a real limit of gene-level enrichment on 17,045\u201317,831-gene universes."
+  },
+  {
+   "id": "R3-57",
+   "name": "Node inspector \u2014 instance-level annotation frequency bars",
+   "what_it_shows": "The always-available fallback: what fraction of the cluster's own instances carry each RBP, miRNA or InterPro term (utr3_0215 \u2192 LARP4 18, PCBP1 15, PCBP2 14, DDX55 9, UPF1 8).",
+   "encoding": "Ranked horizontal bars with raw count and percentage, headed 'frequency among this cluster's instances \u2014 not an enrichment test'.",
+   "data_source": "explode of the four RBP list columns and mirna_annotations_targetscan in motif_full_annotations.parquet, grouped by motif_cluster",
+   "precompute_needed": "YES \u2014 one groupby per cluster at bake time (measured 1.8 ms live, so either is fine)",
+   "interactions": [
+    "click a bar \u2192 member instances carrying it; also seeds an R1 gene search"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the only annotation content that exists for every node, and its header sentence is what prevents a frequency being read as an enrichment."
+  },
+  {
+   "id": "R3-58",
+   "name": "Node inspector \u2014 partner list with module breakdown",
+   "what_it_shows": "All of a node's partners, sorted by score, with how they split across modules \u2014 the fastest way to see that a node is a cross-module bridge.",
+   "encoding": "Table of partner id, name, score, gate values, plus a small stacked bar at the top showing the partner-module composition.",
+   "data_source": "results/phylo_corrected_candidates.csv filtered to the node",
+   "interactions": [
+    "sort by score / co_count / clades",
+    "click \u2192 edge inspector",
+    "filter to cross-module partners only"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "For a hub like prot_0223 (62 partners) the module composition is the only summarisable property, and it is exactly the statistic that identifies the M1/M5 bridge nodes."
+  },
+  {
+   "id": "R3-59",
+   "name": "Node inspector \u2014 aggregated partner protein features",
+   "what_it_shows": "For a UTR node, the union of InterPro/MobiDB/ELM terms across its protein partners \u2014 the one-glance answer to 'what kind of protein does this RNA motif travel with'.",
+   "encoding": "Horizontal bars of terms weighted by partner count and fold, each labelled with which partner contributed it.",
+   "data_source": "join of the node's partner list to cluster_term_enrichment.csv.gz where region='protein' and fdr_cluster<0.05",
+   "precompute_needed": "YES \u2014 a small per-UTR-node rollup",
+   "interactions": [
+    "click a term \u2192 the partners carrying it",
+    "click a partner \u2192 its cluster page"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "This is the literal 'how a motif interacts with protein features' chain, and it is the strong direction: 199 of 201 protein nodes carry a significant term versus 109 of 318 UTR nodes, so the UTR page should lead with its partners' features rather than its own."
+  },
+  {
+   "id": "R3-60",
+   "name": "Node inspector \u2014 member gene preview",
+   "what_it_shows": "A first look at the genes carrying this cluster's motifs, without leaving the network.",
+   "encoding": "12 gene chips plus a count and a 'see all' link; chips carrying a module badge where the gene is a module member.",
+   "data_source": "identified_motifs_with_clusters.0513.parquet (motif_cluster \u2192 sequence_id) joined to motif_full_annotations.parquet gene_symbol; module membership via 03.interacting_modules/module_gene_members/module_gene_index.csv (refseq_ids joins to sequence_id at 100% precision)",
+   "interactions": [
+    "click a gene \u2192 the R1 transcript view deep-linked to an instance of this motif"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the shortest path from an abstract node back to a sequence a biologist recognises, which is the handoff that makes R3 useful rather than decorative."
+  },
+  {
+   "id": "R3-61",
+   "name": "Edge inspector \u2014 facing consensus logos",
+   "what_it_shows": "The protein consensus and the UTR consensus side by side across the association statistics \u2014 the bilingual claim made literal, and the requirement's 'edge with motif consensus'.",
+   "encoding": "Two logos mirrored inward with an association bar between them carrying co_count and npmi_mip_APC; each logo captioned with its own coverage and carrier count.",
+   "data_source": "consensus_repertoire.pkl PWMs for both endpoints; intermediate/consensus_pair_scores.csv.gz (p_consensus, u_consensus, p_coverage, u_coverage, p_carriers, u_carriers, co_count, npmi_mip_APC)",
+   "interactions": [
+    "cycle consensus pairs (mean 4.8 per covered edge, max 50)",
+    "click either logo \u2192 that cluster's node inspector"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the single image that expresses what this paper found. Everything else in the edge panel is supporting statistics."
+  },
+  {
+   "id": "R3-62",
+   "name": "Edge inspector \u2014 consensus fallback tier indicator",
+   "what_it_shows": "Which of three tiers of consensus evidence the panel is showing, named in words rather than implied: tier 1 a real consensus pair (1,430 of 2,620 edges), tier 2 each endpoint's own consensus lists (2,000 edges qualify), tier 3 top literal member strings (3 edges need it).",
+   "encoding": "A labelled band above the logos: 'consensus pair' / 'consensus per cluster \u2014 no pair was computed' / 'most frequent member sequences'.",
+   "data_source": "consensus_pair_scores.csv.gz \u2192 consensus_meta.csv \u2192 identified_motifs_with_clusters.0513.parquet motifs value_counts",
+   "interactions": [
+    "hover the tier label \u2192 why the gap exists (consensus association was only run within modules, so zero of the 757 cross-module edges have a pair)"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "45% of edges \u2014 including every cross-module edge the manuscript discusses \u2014 would otherwise show a visibly weaker panel with no explanation. Naming the tier converts a hole into a stated fact."
+  },
+  {
+   "id": "R3-63",
+   "name": "Edge inspector \u2014 four-gate bullet gauges",
+   "what_it_shows": "Each of the four gate conditions as a value against its threshold, plus frac_co_ZNF and n_indep_families as read-only evidence.",
+   "encoding": "Six bullet charts: clade_concentration < 0.35 (observed 0.108\u20130.349), n_indep_clades \u2265 8 (8\u201323), npmi_mip_APC > 0.10 (0.100\u20130.721), co_count \u2265 10 (10\u2013272), plus frac_co_ZNF on a 0\u20130.5 scale (max 0.400, only 11 edges above 0.30) and n_indep_families (9\u2013143). Threshold ticks drawn, pass tinted teal.",
+   "data_source": "results/phylo_corrected_candidates.csv, all six columns",
+   "interactions": [
+    "hover \u2192 the condition quoted verbatim from MODULES_REPORT.md and what it controls for"
+   ],
+   "library": "hand-rolled SVG or CSS bars",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "prior_art": "Stephen Few bullet charts",
+   "why_it_earns_its_place": "Bullet charts are the right mark because the question is 'value versus threshold', not 'value versus value'. This is the unit that operationalises the mandatory caveat instead of restating it."
+  },
+  {
+   "id": "R3-64",
+   "name": "Edge inspector \u2014 full statistics table",
+   "what_it_shows": "Every column of the edge record, auditable and exportable.",
+   "encoding": "Two-column table: co_count, n_indep_families, n_indep_clades, clade_concentration, frac_co_ZNF, npmi_raw, npmi_mip_APC, npmi_reweighted, npmi_family, perm_z_withinfamily, perm_p_withinfamily, phylo_corrected_score \u2014 with npmi_raw visually de-emphasised and footnoted.",
+   "data_source": "results/phylo_corrected_candidates.csv (15 columns); higher-precision values available from results/corrected_score_matrices.npz, since the CSV is rounded to ~5 decimals (max deviation measured 5e-5)",
+   "interactions": [
+    "copy row; export as CSV/JSON",
+    "hover any statistic \u2192 its definition"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A reviewer will want the numbers, all of them, in a form they can paste. Hiding npmi_raw entirely would look evasive; de-emphasising it with a footnote is the honest middle."
+  },
+  {
+   "id": "R3-65",
+   "name": "Edge inspector \u2014 consensus-pair table",
+   "what_it_shows": "Which specific consensus strings carry the cluster-level association, with their own statistics.",
+   "encoding": "Table: p_cid, p_consensus, u_cid, u_consensus, coverages as bars, co_count, npmi_mip_APC, n_indep_clades, and whether the consensus pair itself passes the gate (1,266 of 49,547 rows do).",
+   "data_source": "intermediate/consensus_pair_scores.csv.gz (49,547 rows \u00d7 22 columns; 6,890 with cl_passes covering 1,430 cluster pairs; cl_* columns carry the parent cluster statistics on every row)",
+   "precompute_needed": "YES \u2014 top 3 per (p_cluster, u_cluster) \u2248 3,599 rows",
+   "interactions": [
+    "sort by npmi_mip_APC",
+    "click a row \u2192 that consensus pair's carrier genes"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the most scientifically informative drill-down available \u2014 it turns 'these two clusters co-occur' into 'these two specific sequences co-occur' \u2014 and the data is already computed."
+  },
+  {
+   "id": "R3-66",
+   "name": "Edge inspector \u2014 shared carrier gene list (cluster resolution)",
+   "what_it_shows": "The actual transcripts carrying both motifs. VERIFIED: this set's size equals co_count exactly (800/800 edges tested), so the list IS the evidence behind the edge, not an approximation of it.",
+   "encoding": "Gene chips with a count header, sorted by the number of instances of either motif; measured set sizes median 64.5, p90 123, max 272, min 15.",
+   "data_source": "intersection of the two clusters' transcript sets from the 541,746 distinct (sequence_id, motif_cluster) pairs in identified_motifs_with_clusters.0513.parquet \u2014 or equivalently a bitwise AND of the P and U columns in results/matrices_cache.npz (genes 18,068; P 18,068\u00d7300 int8; U 18,068\u00d7600 int8), which reproduced co_count exactly in my check",
+   "precompute_needed": "OPTIONAL \u2014 the intersection is 0.02 s for 800 edges from an in-memory set index, so it can be live; precompute only for a fully static build",
+   "interactions": [
+    "click a gene \u2192 the R1 transcript view deep-linked to an instance",
+    "export the list as CSV",
+    "'send all to the module gene table'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It closes the loop from the network back to sequences and it is exactly reproducible from the published tables \u2014 which is precisely the property that makes a portal citable."
+  },
+  {
+   "id": "R3-67",
+   "name": "Edge inspector \u2014 carrier resolution selector",
+   "what_it_shows": "That 'the genes on this edge' has three different answers, and forces the reader to see which one they are reading: module (thousands), cluster (= co_count, median 64.5), consensus (median 23, and ZERO for 26 of 500 sampled edges).",
+   "encoding": "Three-segment control with the count printed inside each option and a permanent caption naming the active resolution.",
+   "data_source": "module level from module_gene_index.csv; cluster level from the transcript-set intersection above; consensus level from consensus_presence.npz (Pc 18,068\u00d7275, Uc 18,068\u00d7951, covering only 136 protein and 315 UTR clusters)",
+   "interactions": [
+    "switch resolution; every count and list on the panel updates and relabels"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The consensus-level answer is empty for about 5% of edges whose cluster-level co_count is 15 or more. Defaulting to consensus resolution would make a real edge look like a non-result; making the level explicit is the only safe design."
+  },
+  {
+   "id": "R3-68",
+   "name": "Edge inspector \u2014 carrier overlap mini-diagram",
+   "what_it_shows": "The three set sizes behind co_count: transcripts with only the protein motif, only the UTR motif, and both.",
+   "encoding": "A three-segment proportional bar (not a Venn \u2014 the sets are nested awkwardly and a bar reads more accurately at this size), with the intersection segment highlighted and all three counts printed.",
+   "data_source": "the two cluster transcript sets from identified_motifs_with_clusters.0513.parquet or matrices_cache.npz",
+   "interactions": [
+    "hover each segment \u2192 count and percentage of each cluster",
+    "click the intersection \u2192 the carrier list"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "co_count alone is uninterpretable without the marginals \u2014 175 shared genes means something very different when the clusters have 445 and 372 genes than when they have 3,000 each. This is what makes NPMI's normalisation legible."
+  },
+  {
+   "id": "R3-69",
+   "name": "Edge inspector \u2014 rank context",
+   "what_it_shows": "Where this edge sits among the 2,620 gated edges and among all 180,000 scored pairs.",
+   "encoding": "A small histogram of phylo_corrected_score with a marker and a rank label ('#1 of 2,620'), plus a percentile against the full grid.",
+   "data_source": "results/phylo_corrected_candidates.csv and results/protein_utr_FINAL_scores.csv",
+   "interactions": [
+    "hover \u2192 percentile",
+    "click \u2192 the pair explorer with this point selected"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "prot_0040 \u00d7 utr5_0004 at 1.769 is nearly 6.5\u00d7 the median edge. Without rank context every edge reads as equally strong, which is the classic network-view distortion."
+  },
+  {
+   "id": "R3-70",
+   "name": "Edge inspector \u2014 clade/family support breakdown",
+   "what_it_shows": "How many independent protein families and deep clades actually support this edge, versus how many genes \u2014 the difference the whole paralogy correction rests on.",
+   "encoding": "Three nested bars on a shared log axis: co_count genes (10\u2013272), n_indep_families (9\u2013143), n_indep_clades (8\u201323), with the collapse from genes to clades made visually literal.",
+   "data_source": "results/phylo_corrected_candidates.csv columns co_count, n_indep_families, n_indep_clades",
+   "interactions": [
+    "hover \u2192 the definitions and the 36-protein-class derivation (aa 5-mer TF-IDF \u2192 truncated SVD \u2192 Louvain)"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the per-edge version of the Meff argument (18,068 genes \u2192 2,342 effective) and it is far more persuasive at the point of use than on a methods page."
+  },
+  {
+   "id": "R3-71",
+   "name": "Edge inspector \u2014 ZNF share bar",
+   "what_it_shows": "What fraction of this edge's co-occurring genes are ZNF paralogs \u2014 the specific artifact the pipeline was built to remove.",
+   "encoding": "A single bar on a 0\u20130.5 scale with the gate's effective ceiling marked; median 0.015, p90 0.109, max 0.400, and zero passing edges above 0.5.",
+   "data_source": "results/phylo_corrected_candidates.csv frac_co_ZNF",
+   "interactions": [
+    "hover \u2192 'the KRAB-ZNF expansion is one clade counted hundreds of times; 547 ZNF genes contribute an effective sample size of 9.0'",
+    "link to the artifact explainer"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "It is one number that pre-empts the first objection any reviewer will raise, and putting it inline on every edge rather than behind a toggle is what makes the caveat structural."
+  },
+  {
+   "id": "R3-72",
+   "name": "Edge inspector \u2014 UMAP locator",
+   "what_it_shows": "Where this specific edge sits in the 180,000-pair embedding.",
+   "encoding": "A 160\u00d7160 thumbnail of the pair UMAP with all pairs at 8% opacity, the 2,620 gated pairs lit, and this pair marked.",
+   "data_source": "cca_winner_umap.npy + row_index.csv joined on (protein, utr)",
+   "interactions": [
+    "click \u2192 the full pair explorer with this point selected"
+   ],
+   "library": "canvas 2D",
+   "render_tech": "Canvas",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "It ties the network's local view back to the global one for a reader who wants to know whether this edge is typical of its neighbourhood."
+  },
+  {
+   "id": "R3-73",
+   "name": "Edge inspector \u2014 carrier sequence preview strip",
+   "what_it_shows": "For three or four carrier genes, the actual local sequence around each matched motif on both sides \u2014 the manuscript's Fig 4a idiom, inside the edge panel.",
+   "encoding": "Monospace rows, motif upper-case and tinted, flanks lower-case grey, motif starting at a fixed column; UTR shown in RNA alphabet.",
+   "data_source": "GRCh37_latest_rna_sequence_pairs_long_transcript.parquet sequences sliced with the verified inclusive rule seq[motif_start:motif_end+1]; coordinates from motif_full_annotations.parquet; ordering logic portable from examples_of_each_gene/examples_lib.py context()",
+   "interactions": [
+    "click a row \u2192 the R1 transcript view at that position",
+    "cycle to the next carriers"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the moment where an abstract edge becomes two real sequences in a real gene. Nothing else in R3 does that, and the slicing contract is already verified exact over all 889,215 rows."
+  },
+  {
+   "id": "R3-74",
+   "name": "Module panel \u2014 GO dot plot with trusted toggle",
+   "what_it_shows": "The module's GO themes, defaulting to the authors' stricter 'trusted' subset (q<0.05 AND fold\u22652 AND n_fam_support\u22655).",
+   "encoding": "Dots: x = fold, y = term, size = n_genes, colour = \u2212log10 q, with a companion bar per row for n_fam_support so a term resting on one expanded paralog family is visible as such. Both counts printed on the toggle: M1 1,419 of 2,310, M2 442/962, M3 383/926, M4 223/342, M5 593/1,086, M6 470/763.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/sequence_analysis_v4_0621/03.interacting_modules/module_GO_enrichment.csv (6,389 rows already filtered to q<0.05; columns module_id, term, name, k, K, n_query, fold, p, n_fam_support, dom_family_frac, q, n_genes)",
+   "interactions": [
+    "trusted/all toggle",
+    "hover \u2192 full contingency plus dom_family_frac",
+    "click a term \u2192 the genes driving it"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "Module GO themes are how the six modules got their names, and the report explicitly warns not to read raw counts of significant terms. n_fam_support on every row is what makes that warning actionable."
+  },
+  {
+   "id": "R3-75",
+   "name": "Module panel \u2014 GO specificity slope chart",
+   "what_it_shows": "Which terms actually discriminate this module from the other five: peak module \u2212log10 q against the runner-up, for the 42 representative terms (38 with a gap \u2265 5 log units).",
+   "encoding": "Slope lines from peak_nlq to second_nlq, sorted by specificity_gap, coloured by peak module.",
+   "data_source": "03.interacting_modules/GO_term_specificity.csv (42 rows: term, peak_module, peak_nlq, second_nlq, specificity_gap, n_modules_sig), with GO_terms_module_specific.csv (38) and GO_terms_shared_across_modules.csv (3)",
+   "interactions": [
+    "hover \u2192 both q values and the runner-up module",
+    "click \u2192 that term across all six modules"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "prior_art": "Tufte slopegraph",
+   "why_it_earns_its_place": "M1 and M2 are both TF modules with heavily overlapping GO; the specificity gap is the only honest way to say what separates them, and the file is 2.5 KB and already computed."
+  },
+  {
+   "id": "R3-76",
+   "name": "Module panel \u2014 member gene table",
+   "what_it_shows": "The genes that carry both motifs of at least one gated pair of this module, with their GO hit counts and paralog families.",
+   "encoding": "Virtualised table: gene, n_transcripts, paralog_families, n_sig_terms_hit, n_trusted_terms_hit; the trusted_terms cell rendered as a count with an expander, never as the raw semicolon string (NOTCH1 holds 268 terms).",
+   "data_source": "03.interacting_modules/module_gene_members/module_gene_index.csv (12,345 rows; per module 3,083 / 2,434 / 3,112 / 844 / 1,482 / 1,390 genes hitting \u22651 significant term)",
+   "interactions": [
+    "search, sort, export",
+    "row \u2192 R1 transcript view via refseq_ids"
+   ],
+   "library": "a virtualised table component",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "'Representative genes' is part of the requirement, and this is the only file that connects modules to gene symbols with a verified refseq join."
+  },
+  {
+   "id": "R3-77",
+   "name": "Module panel \u2014 membership definition note",
+   "what_it_shows": "That a module gene is one carrying BOTH motifs of at least one gated pair, and that the table's row count (genes hitting \u22651 significant term) is smaller than total membership (M1 3,083 vs 3,388).",
+   "encoding": "One explanatory line above the table with both numbers.",
+   "data_source": "03.interacting_modules/module_gene_members/README.md, quoted verbatim",
+   "interactions": [
+    "link to the methods page"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Two different gene counts per module circulate in these files. Printing both with their definitions prevents a reader deriving a contradiction and concluding the portal is unreliable."
+  },
+  {
+   "id": "R3-78",
+   "name": "Module panel \u2014 representative pair chips",
+   "what_it_shows": "The five pre-selected representative interactions per module, already chosen upstream.",
+   "encoding": "Chips formatted 'prot_0040 \u00d7 utr5_0004', each with its score.",
+   "data_source": "modules.json top_pairs[] (e.g. M6: prot_0040xutr5_0004, prot_0040xutr3_0463, prot_0235xutr5_0004, prot_0030xutr3_0463, prot_0235xutr3_0463; M3: five pairs all involving utr5_0090)",
+   "interactions": [
+    "click \u2192 edge inspector with that edge selected in the canvas"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Free, already curated, and it gives every module a guaranteed non-empty entry point. M3's five top pairs all sharing utr5_0090 is itself a visible result."
+  },
+  {
+   "id": "R3-79",
+   "name": "Module panel \u2014 member cluster gallery",
+   "what_it_shows": "Every cluster in the module (not the \u22645-per-side figure cap) as a card with logo, name and degree.",
+   "encoding": "Two-column card grid, protein left, UTR right; card border in the region colour; M3 shows all 62+71.",
+   "data_source": "modules.json member lists + consensus_meta.csv + the per-cluster index",
+   "interactions": [
+    "click \u2192 node inspector",
+    "sort by degree, n_genes or consensus coverage"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "The published figure shows 52 of 513 module clusters. A reader who assumes the figure is the module will be wrong by an order of magnitude, and the gallery is the correction."
+  },
+  {
+   "id": "R3-80",
+   "name": "Module panel \u2014 cross-module link bars",
+   "what_it_shows": "This module's connections to the other five with counts and mean scores.",
+   "encoding": "Horizontal bars in the partner module's colour: for M5 \u2192 M1 192 (mean 0.325), M2 28, M6 15, M3 5, M4 4.",
+   "data_source": "the derived 6\u00d76 adjacency",
+   "interactions": [
+    "click \u2192 the canvas filtered to that module pair"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It puts the manuscript's own M5\u2013M1 observation on the M5 page, where a reader looking at M5 will actually find it."
+  },
+  {
+   "id": "R3-81",
+   "name": "Gate definition card",
+   "what_it_shows": "The four conditions and the edge-weight formula, quoted exactly, wherever a gate value appears.",
+   "encoding": "A compact card: clade_concentration < 0.35 AND n_indep_clades \u2265 8 AND npmi_mip_APC > 0.10 AND co_count \u2265 10; weight = MIp \u00d7 (1 \u2212 clade_concentration) \u00d7 log1p(n_indep_clades); Louvain modularity 0.47, 9 communities, 6 retained.",
+   "data_source": "03.interacting_modules/MODULES_REPORT.md, verbatim",
+   "interactions": [
+    "open from any gate gauge",
+    "links to the funnel"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Every number in this view depends on these four inequalities. They should be one hover away from every place they are applied."
+  },
+  {
+   "id": "R3-82",
+   "name": "Association funnel",
+   "what_it_shows": "180,000 scored pairs \u2192 166,615 co-occurring \u2192 2,620 gated (1.6%).",
+   "encoding": "Three nested horizontal bars drawn to scale, each labelled with the condition that removed the difference; the final bar is a sliver, which is the point.",
+   "data_source": "results/protein_utr_FINAL_scores.csv (180,000 rows; 13,385 with co_count 0; 166,615 with co_count > 0; 2,620 with passes_phylo_filter)",
+   "interactions": [
+    "hover a stage \u2192 per-condition removal counts",
+    "click \u2192 the pair explorer filtered to that population"
+   ],
+   "library": "hand-rolled SVG",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the honest scale statement for the whole view, and it belongs in R3's chrome rather than only on a methods page \u2014 the network is what survived, and the reader should know how little that is."
+  },
+  {
+   "id": "R3-83",
+   "name": "Raw-vs-corrected artifact toggle",
+   "what_it_shows": "Sorting the top 30 pairs by raw NPMI yields 25 'ZNF clade artifact' verdicts; re-sorting by the corrected score replaces them.",
+   "encoding": "A table with a sort toggle; artifact rows tinted vermillion, 'survives' tinted teal; the reordering animates so the artifacts visibly fall away. Row 1 raw is prot_0228 \u00d7 utr5_0020, npmi_raw 0.8969, 2 clades, frac_co_ZNF 0.990, passes_phylo_filter False.",
+   "data_source": "results/RAW_top30_annotated.csv (30 rows \u00d7 16 columns including a hand-written verdict column: 25 / 4 / 1)",
+   "interactions": [
+    "toggle the sort key",
+    "click any row \u2192 the pair detail, including rejected pairs which open with a REJECTED banner and the failing gate highlighted"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "It is the most persuasive artifact in the entire project and it needs no new writing. Reachable from the network's caveat bar, it converts the mandatory disclaimer into a demonstration."
+  },
+  {
+   "id": "R3-84",
+   "name": "Effective sample size bars",
+   "what_it_shows": "Why paralogy needed correcting: 18,068 genes have an effective sample size of 2,342 (13.0%); the 547 ZNF genes contribute an effective 9.0 (1.7%).",
+   "encoding": "Two paired bars on a shared linear scale so the collapse is literal, with the ratio printed.",
+   "data_source": "results/relatedness_report.md",
+   "interactions": [
+    "hover \u2192 the verbatim sentence from the report"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the single arithmetic fact that justifies every gate threshold, and it takes two bars."
+  },
+  {
+   "id": "R3-85",
+   "name": "Persistent co-occurrence caveat bar",
+   "what_it_shows": "That edges are statistical co-occurrence of motif clusters across genes, not demonstrated physical interaction \u2014 as non-dismissible chrome on this view specifically.",
+   "encoding": "A 40 px band, warn tint, one sentence plus a 'why?' link; not collapsible on the network, module or edge views.",
+   "data_source": "quoted verbatim from 03.interacting_modules/module_gene_members/README.md and MODULES_REPORT.md",
+   "interactions": [
+    "'why?' \u2192 the artifact explainer"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A bipartite graph with thick edges is read as an interactome. The data model should also name the field 'co-occurrence' so no template can ever emit 'binds'."
+  },
+  {
+   "id": "R3-86",
+   "name": "Network legend / encoding key",
+   "what_it_shows": "All simultaneous encodings with live example glyphs: shape = region, fill = module, area = carrier genes, width = phylo score, solid/dashed = consensus tier, light stroke = cross-module.",
+   "encoding": "A compact always-visible block drawn by the same code as the canvas, so it can never drift from what is rendered.",
+   "data_source": "the palette constants in _shared/manuscript_style.py and the MCOL mapping used identically by four published figure scripts (M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73)",
+   "interactions": [
+    "click a module swatch \u2192 isolate that module",
+    "click the dashed key \u2192 highlight all consensus-less edges"
+   ],
+   "library": "hand-rolled SVG glyphs",
+   "render_tech": "hybrid",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Five simultaneous channels is at the edge of what a reader can hold; a legend drawn by the rendering code is the only way to keep it honest. Note that three conflicting module palettes exist in the codebase \u2014 pick MCOL and say so."
+  },
+  {
+   "id": "R3-87",
+   "name": "Selection breadcrumb",
+   "what_it_shows": "Where the reader is in the meta \u2192 module \u2192 node/edge hierarchy and what is currently pinned.",
+   "encoding": "Chips: 'Network / M5 / prot_0072 \u00d7 utr5_0079', each dismissable, with a neighbour count when a node is selected.",
+   "data_source": "view state",
+   "interactions": [
+    "each chip navigates up a level",
+    "'pin' keeps a selection while exploring another"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "With three zoom levels and two inspector types it is easy to lose track of what the panel is describing."
+  },
+  {
+   "id": "R3-88",
+   "name": "Pin-and-compare tray",
+   "what_it_shows": "Two or three pinned nodes or edges side by side for direct comparison.",
+   "encoding": "A bottom tray of pinned cards; comparing two edges shows their gate gauges on shared axes so the values are directly readable against each other.",
+   "data_source": "the same records as the inspectors",
+   "interactions": [
+    "pin from any inspector; unpin; swap into the main panel"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "The natural question after opening one edge is 'is this better than that one', and switching panels loses the first set of numbers."
+  },
+  {
+   "id": "R3-89",
+   "name": "Empty-state cards (four kinds)",
+   "what_it_shows": "Four distinct absences, each explained with its measured number: (a) this cluster has no gated partner (282 of 600 UTR and 99 of 300 protein clusters); (b) this cluster is in no module (387 of 900: 102 protein, 251 utr3, 34 utr5); (c) this node has no significant STREME motif (68 of 519 network nodes); (d) this node has no term at FDR<0.05 (211 of 519).",
+   "encoding": "Bordered cards with the cause, the count, and one onward action \u2014 never a blank panel.",
+   "data_source": "derived flags over modules.json, consensus_repertoire.pkl, cluster_term_enrichment.csv.gz and protein_utr_FINAL_scores.csv",
+   "interactions": [
+    "(a) offers the sub-threshold ghost edges; (b) links to the gate explainer; (c) offers the member-string fallback; (d) offers the instance-frequency bars"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "These four states cover a large fraction of all possible clicks. Treated generically they read as bugs; treated specifically they are four of the portal's most informative screens."
+  },
+  {
+   "id": "R3-90",
+   "name": "Loading skeletons",
+   "what_it_shows": "That a panel or the canvas is loading, in the shape of what will arrive.",
+   "encoding": "Shape-matched shimmer blocks for the canvas, the inspector and the logo slots, so nothing jumps on arrival.",
+   "data_source": "n/a",
+   "interactions": [
+    "none"
+   ],
+   "library": "CSS",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The graph payload and the PWM bundle are the two heaviest things in the portal; a jumping layout on arrival makes a fast app feel slow."
+  },
+  {
+   "id": "R3-91",
+   "name": "Export controls",
+   "what_it_shows": "The current view as data and as an image.",
+   "encoding": "Menu: current subgraph as SVG (publication-ready, with a title block naming the snapshot version and active filters), PNG at 2\u00d7, edges as CSV, nodes as CSV, the selected edge's carrier list as CSV.",
+   "data_source": "the in-memory graph state and the underlying tables",
+   "interactions": [
+    "choose format; filenames carry the snapshot version"
+   ],
+   "library": "SVG serialisation + canvas rasterisation",
+   "render_tech": "hybrid",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Exporting the filtered subgraph is what turns the view from a figure viewer into something a reader can put in a talk or a reviewer reply."
+  },
+  {
+   "id": "R3-92",
+   "name": "Permalink / URL state sync",
+   "what_it_shows": "That every selection, filter and zoom level is a real URL.",
+   "encoding": "A copy-link button plus the URL scheme /network?level=&modules=&min=&cross=&focus=&edge=&tier=.",
+   "data_source": "view state",
+   "interactions": [
+    "copy; paste restores the exact view"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A network view that cannot be cited by URL cannot support the paper it accompanies."
+  },
+  {
+   "id": "R3-93",
+   "name": "Accessible table equivalent of the graph",
+   "what_it_shows": "The same edges as a keyboard-navigable, screen-readable, sortable table, so the view is not image-only.",
+   "encoding": "A virtualised table of the currently visible edges with all statistics, kept in sync with the canvas filters.",
+   "data_source": "results/phylo_corrected_candidates.csv filtered to the current view",
+   "interactions": [
+    "sort, filter, keyboard traversal; selecting a row selects the edge in the canvas and vice versa"
+   ],
+   "library": "a virtualised table component",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Node-link diagrams are the least accessible chart type there is, and a linked table costs almost nothing when the data is already loaded. It also happens to be the fastest way for an expert to find a specific pair."
+  },
+  {
+   "id": "R3-94",
+   "name": "Data-coverage bars for this view",
+   "what_it_shows": "How complete the network's own content is, stated up front: 451/519 nodes with a logo, 308/519 with a significant term, 1,430/2,620 edges with a consensus pair, 142/519 nodes with a cached positional histogram before recomputation.",
+   "encoding": "Four small horizontal bars with numerator/denominator printed.",
+   "data_source": "the derived completeness flags",
+   "interactions": [
+    "click a bar \u2192 filters the canvas to the covered subset"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It sets expectations before the reader hits their third empty panel, and it doubles as a quick filter."
+  },
+  {
+   "id": "R3-95",
+   "name": "Node/edge count sanity strip in the module drill-down",
+   "what_it_shows": "For the current module, that the drawn subgraph matches the module's declared statistics (e.g. M1: 39 protein + 67 UTR nodes, 774 edges, mean score 0.3633).",
+   "encoding": "A one-line comparison of drawn versus declared counts, turning amber if they disagree.",
+   "data_source": "modules.json n_protein / n_utr / n_edges / mean_score against the rendered subgraph",
+   "interactions": [
+    "hover \u2192 both numbers"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "It is a self-check that catches layout or filtering regressions in the exact place where a silent one-node drop would never otherwise be noticed."
+  }
+ ],
+ "layout_options": [
+  {
+   "name": "A. Fig 3e-faithful two-column bipartite with sticky inspector",
+   "wireframe": "+-----------------------------------------------------------------------------------------+\n| (!) Edges are co-occurrence of motif clusters across genes, not demonstrated binding. [?] |\n+-----------------------------------------------------------------------------------------+\n| level: [meta 6] [FULL 519] [module v]   preset: [as published 52] [top 200]   [export][?] |\n| edges >= [0.15 ==o------------ 1.77]   showing 519 nodes / 2,620 edges (757 cross-module) |\n+---------------------------------------------------------------------+-------------------+\n|  PROTEIN CLUSTERS (201)                     UTR CLUSTERS (318)       | INSPECTOR (420px) |\n|                                                                      |                   |\n|  [logo]  o prot_0040 --------------------- [] utr5_0004 [logo]       | EDGE              |\n|  |..|.|  Histone-fold        \\             Kozak GCCACC  |.|..||     | prot_0040 x       |\n|  cov .39 M6  deg 7            \\--------\\   M6  deg 5     cov .21 (!) | utr5_0004    M6   |\n|                                         \\                            |                   |\n|  [logo]  o prot_0235 ------------\\       \\- [] utr3_0463 [logo]      |  [ P logo ] x     |\n|  |.|||.  M6  deg 4               \\          UC-rich/SLBP |||.|.      |  [ U logo ]       |\n|          ................. M6 band ................................  |  cov .39 / .21(!) |\n|                                                                      |  co-occur 175 tx  |\n|  [logo]  o prot_0072 =============\\------- [] utr5_0079 [logo]       |                   |\n|  ||..|.  RRM sf / phase sep        \\        cap-proximal .|||...     | GATE              |\n|          M5 deg 17                  \\-----  M5 deg 8                 |  clade_conc .09   |\n|          ................. M5 band ................................  |   [==o------] .35 |\n|                                                                      |  clades      23   |\n|  [logo]  o prot_0223 ~~~~~~~~~~~~~~~~~~~~~ [] utr3_0232 [logo]       |   [------o==] 8   |\n|  ...||.  deg 62 (hub, +42 hidden)           M1 deg 29                |  npmi_APC   .628  |\n|          ................. M1 band ................................  |   [-----o===] .10 |\n|                                                                      |  co_count   175   |\n|  solid = consensus pair (1,430)   dashed = cluster-level only        |   [--o======] 10  |\n|  light  = cross-module (757, on)  ~~~~ = capped hub                  |  ZNF 0.000        |\n|                                                             [minimap]|                   |\n+---------------------------------------------------------------------+  CONSENSUS PAIRS 3|\n| legend: o protein  [] UTR   fill = module   size = carrier genes     |  CARRIERS 175 [dl]|\n|         width = phylo score (0.146-1.769)   label colour = region    |  HMGN2 H2AC13 ... |\n| filters: [M1..M6] [utr3|utr5] [x cross-module] [has logo] [strict v] |  [open pair page] |\n+---------------------------------------------------------------------+-------------------+",
+   "pros": "Reproduces the printed Fig 3e arrangement, so a reader arriving from the paper recognises it immediately. Protein-left/UTR-right makes the bilingual claim structural rather than decorative. Node glyphs carry the logo AND the positional histogram exactly as published, which is what the requirement asks for. Module bands give a stable vertical ordering that makes cross-module edges literally longer than intra-module ones, so the 28.9% cross-linking is visible without a special mode. The sticky inspector never moves the graph.",
+   "cons": "At 519 nodes the two columns are ~250 nodes tall each, so it is a scrolling or heavily zoomed canvas; node glyphs with logos only fit at high zoom, so labels and logos must appear via semantic zoom. Hub nodes (prot_0223 at degree 62) still produce local clutter, requiring the degree cap. The vertical module ordering can only place adjacent modules adjacently, so some cross-module edges span the whole canvas.",
+   "best_for": "The manuscript reader and the reviewer \u2014 anyone whose mental model is Fig 3e and who wants to check specific published pairs. Also the best default for a first-time visitor arriving from the paper's URL, provided it opens on the 52-node 'as published' preset rather than all 519."
+  },
+  {
+   "name": "B. Level-of-detail cockpit: persistent meta rail + main canvas + inspector",
+   "wireframe": "+------------------------------------------------------------------------------------------+\n| (!) co-occurrence, not binding                                          [methods] [theme] |\n+--------------+------------------------------------------------------+--------------------+\n| META RAIL    |  MAIN CANVAS  (context: M5 selected)                  | INSPECTOR          |\n| (always on)  |                                                       |                    |\n|              |   M5 intra: 24 protein x 33 UTR, 126 edges, d=0.159   | NODE prot_0072     |\n|  6x6 module  |                                                       |  [ sequence logo ] |\n|  matrix      |   o--------------------------[]                       |  RGRGGG            |\n|   P\\U 1 2 3 4 5 6                                                    |  cov 0.39  189 car |\n|   1 |#|+|.| |+|.|   o--\\                    []                       |                    |\n|   2 |+|#|+| |.| |        \\------------------[]  <- utr5_0079         |  position N->C     |\n|   3 |.|+|#|.|.|.|   o----/                  []                       |  |..||||.|||..|.|  |\n|   4 | |.|.|#|.|.|                                                    |  median 0.48       |\n|   5 |+|.| | |#|.|   o-------------\\         []                       |                    |\n|   6 |+|.|.| |.|#|                  \\--------[]                       |  TOP TERMS         |\n|              |   ... 24 protein rows / 33 UTR rows ...               |  RNA-binding sf    |\n|  cell = edge |                                                       |    11.1x  FDR 6e-20|\n|  count; rows |   [ ] show M5's 45 cross-module edges as stubs        |  phase separation  |\n|  = protein   |                                                       |    (curated) 9.3x  |\n|  cols = UTR  |  +-------------------------------------------------+  |                    |\n|  ASYMMETRIC  |  | partner rail for prot_0072 (17 partners)        |  |  PARTNERS 17       |\n|              |  | |##|#|#|##| | ||  |  |   sorted by score        |  |  utr5_0079  .517   |\n| [module M5]  |  | M5 M5 M5 M1 M1 M2  ^ module colour per tick     |  |  utr3_0007  .49    |\n| [full 519]   |  +-------------------------------------------------+  |  utr3_0371  .47    |\n| [matrix]     |                                                       |  [-> cluster page] |\n| [umap]       |  showing 57 of 519 nodes / 126 of 2,620 edges         |                    |\n+--------------+------------------------------------------------------+--------------------+",
+   "pros": "The 6x6 module matrix stays on screen at all times, so the reader never loses global context while drilling \u2014 and because it is a matrix rather than a node-link, it preserves the directional asymmetry (M1p->M2u 178 vs M2p->M1u 66) that a symmetric meta graph destroys. The main canvas only ever draws one module (max 133 nodes, M3), so a hairball is structurally impossible in the default path. The partner rail below the canvas turns a degree-62 hub from an unreadable star into a sortable strip. Drill-down is one click and the way back is always visible.",
+   "cons": "Costs ~280px of permanent horizontal real estate to the rail. The full 519-node graph becomes a secondary mode rather than the default, which some readers will want. Requires the reader to understand a matrix, which is a small but real cognitive cost. Cross-module edges are shown as stubs in the default module view rather than as complete edges, so following one takes an extra click.",
+   "best_for": "The browsing scientist working through the six modules systematically \u2014 the reader who asks 'what is M5 and how does it connect to M1' rather than 'show me everything'. Also the best layout for a laptop screen, because it never needs more than ~130 nodes on the canvas at once."
+  },
+  {
+   "name": "C. Matrix-first: seriated adjacency heatmap with linked marginals",
+   "wireframe": "+------------------------------------------------------------------------------------------+\n| (!) co-occurrence, not binding      view: [matrix] [node-link] [arc] [umap]     [export]  |\n| show: (o) gated 2,620   ( ) + suggestive 7,210   ( ) all 180,000 with gate mask           |\n| cell = (o) phylo score  ( ) npmi_mip_APC  ( ) co_count  ( ) n_indep_clades  ( ) frac_ZNF  |\n+------------------------------------------------------------------------------------------+\n|          UTR clusters (318, ordered M1..M6 then by degree)                    | EDGE      |\n|          |<-- M1 67 -->|<- M2 73 ->|<- M3 71 ->|<M4 53>|<M5 33>|<M6 18>|      |           |\n| deg bar   \u2581\u2583\u2585\u2588\u2586\u2583\u2582\u2581\u2581 \u2582\u2584\u2583  \u2581\u2583\u2585\u2584\u2582\u2581\u2581\u2581  \u2582\u2583\u2584\u2583\u2582\u2581\u2581\u2581\u2581   \u2581\u2582\u2581\u2581\u2581  \u2582\u2584\u2583\u2582\u2581  \u2583\u2585\u2582\u2581      |           |\n|  P  M1 \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2510            | prot_0040 |\n|  r  39 \u2502\u2588\u2588\u2588\u2593\u2593\u2588\u2588\u2593\u2588\u2593\u2592\u2592\u2591\u2591\u2502\u2591\u2592\u2592\u2591 \u2591\u2591  \u2591 \u2502 \u2591        \u2502      \u2502\u2591 \u2591\u2591\u2591 \u2502 \u2591   \u2502            | x         |\n|  o     \u2502\u2593\u2588\u2588\u2593\u2588\u2593\u2592\u2592\u2591\u2591 \u2591  \u2502 \u2591\u2591  \u2591     \u2502          \u2502      \u2502 \u2591\u2591   \u2502\u2591    \u2502  <- M1 dense| utr5_0004 |\n|  t     \u2502\u2592\u2593\u2588\u2593\u2592\u2591  \u2591     \u2502\u2591          \u2502 \u2591        \u2502      \u2502      \u2502     \u2502     d=0.296 |           |\n|  e  M2 \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2524            | score     |\n|  i  39 \u2502\u2591\u2591 \u2591 \u2591        \u2502\u2593\u2588\u2593\u2592\u2592\u2591\u2591 \u2591  \u2502\u2591\u2592\u2592\u2591 \u2591    \u2502      \u2502 \u2591    \u2502     \u2502            |  1.7694   |\n|  n     \u2502 \u2591            \u2502\u2588\u2593\u2593\u2592\u2591\u2591     \u2502\u2592\u2591\u2591       \u2502      \u2502      \u2502     \u2502            | #1 / 2620 |\n|     M3 \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2524            |           |\n|     62 \u2502 \u2591            \u2502\u2591\u2592\u2591 \u2591      \u2502\u2593\u2592\u2592\u2591\u2591 \u2591\u2591  \u2502\u2591\u2591    \u2502      \u2502\u2591    \u2502  <- M3      | [gauges]  |\n|        \u2502              \u2502           \u2502\u2592\u2591\u2591\u2591 \u2591    \u2502 \u2591    \u2502      \u2502     \u2502     sparse  | clades 23 |\n|     M4 \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2524     d=0.087 | ZNF 0.000 |\n|     20 \u2502              \u2502 \u2591         \u2502 \u2591\u2591       \u2502\u2593\u2592\u2591\u2591  \u2502      \u2502     \u2502            |           |\n|     M5 \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2524            | carriers  |\n|     24 \u2502\u2591\u2591\u2592\u2591\u2591 \u2591\u2591 \u2591    \u2502 \u2591         \u2502          \u2502      \u2502\u2593\u2588\u2592\u2591\u2591 \u2502\u2591    \u2502  <- M5->M1  |  175 [dl] |\n|     M6 \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2524     98 edges|           |\n|     14 \u2502 \u2591\u2591           \u2502           \u2502          \u2502      \u2502 \u2591    \u2502\u2588\u2588\u2593\u2592 \u2502            |           |\n|        \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2518            |           |\n| 63,918 cells, 2,620 filled (4.10%)   empty = no gated edge, NOT zero evidence  |           |\n+------------------------------------------------------------------------------------------+",
+   "pros": "Cannot hairball, by construction. Every pair is addressable in constant time, so 'is prot_0040 linked to utr3_0463?' is answered by looking at one cell instead of tracing a curve. Module blocks appear as dense diagonal squares and their densities become directly comparable (M1 0.296 vs M3 0.087) \u2014 a real result that no node-link layout conveys. Off-diagonal spatter IS the cross-module story, at full resolution, with no toggle needed. Marginal degree bars replace a separate degree chart. Switching the encoded quantity (score / npmi / co_count / clades / ZNF) reuses the identical geometry, so the reader compares like with like. Backed directly by results/corrected_score_matrices.npz with no reshaping.",
+   "cons": "Paths are invisible \u2014 'what is prot_0072 connected to, transitively' is unanswerable. Requires a good seriation or it looks like noise. Row and column labels for 201+318 nodes cannot all be shown, so labels must be on hover or on a zoomed sub-block. Least familiar representation for a bench biologist; needs a short explainer. Empty cells must be captioned 'no gated edge' or they will be read as 'no evidence', which is wrong \u2014 most of them merely failed the gate.",
+   "best_for": "The sceptical or systematic reader: a reviewer checking whether the module block structure is real, a bioinformatician looking for a specific pair, or anyone comparing modules quantitatively. Also the best printable representation, and the right default if the audience is expected to arrive with a specific hypothesis rather than to browse."
+  },
+  {
+   "name": "D. Six-panel small-multiples module atlas with shared inspector",
+   "wireframe": "+------------------------------------------------------------------------------------------+\n| Module atlas \u2014 all six at one scale       [x] show cross-module stubs      [full graph ->] |\n+------------------------------------------------------------------------------------------+\n| +-------------------------+ +-------------------------+ +-------------------------+      |\n| | M1-TF   39x67  774 edges| | M2-TF   39x73  409 edges| | M3-Secr 62x71  385 edges|      |\n| | density 0.296  ZNF .062 | | density 0.144  ZNF .042 | | density 0.087  ZNF .003 |      |\n| |  o\\\\\\\\///[]             | |  o\\\\  //[]              | |  o \\    []              |      |\n| |  o\\\\XX//[]              | |  o \\\\//  []             | |  o  \\   []              |      |\n| |  o XXXX []              | |  o  XX   []             | |  o   \\--[]  <- utr5_0090|      |\n| |  o//XX\\\\[]              | |  o //\\\\  []             | |  o   /  []     hub deg39|      |\n| |  o////\\\\[]              | |  o//  \\\\ []             | |  o  /   []              |      |\n| | 3,388 genes             | | 3,046 genes             | | 4,348 genes             |      |\n| | DNA-binding TF activator| | TF activator; GTPase reg| | ECM; receptor complex   |      |\n| +-------------------------+ +-------------------------+ +-------------------------+      |\n| +-------------------------+ +-------------------------+ +-------------------------+      |\n| | M4-Immune 20x53 123 edg | | M5-RNAproc 24x33 126 edg| | M6-Transl 14x18  43 edg |      |\n| | density 0.116  ZNF .027 | | density 0.159  ZNF .014 | | density 0.171  ZNF .002 |      |\n| |  o   []                 | |  o\\  []                 | |  o====[]  <- prot_0040  |      |\n| |  o \\ []                 | |  o \\\\[]                 | |  o \\\\ []     x utr5_0004|      |\n| |  o--\\[]  <- utr5_0096   | |  o--\\[]  <- utr5_0079   | |  o  \\\\[]     score 1.77 |      |\n| |  o   []                 | |  o   []                 | |  o   \\[]     the top pair|     |\n| | 1,988 genes             | | 1,607 genes             | | 1,562 genes             |      |\n| | humoral immune response | | mRNA processing; splicing| | cytoplasmic translation |      |\n| +-------------------------+ +-------------------------+ +-------------------------+      |\n| cross-module ties:  M1-M2 244 | M1-M5 192 | M2-M3 167 | M1-M6 32 | M1-M3 30 | ...        |\n+------------------------------------------------------------------------------------------+",
+   "pros": "Comparison is the design, not a mode. All six modules fit on one laptop screen because the largest (M3) is 133 nodes and the smallest (M6) is 32. Identical node-size and edge-width scales across panels make the density differences (0.087 to 0.296) and the size differences (774 vs 43 edges) directly readable \u2014 these are real results that a single interactive canvas hides behind toggles. Each panel carries its theme caption and ZNF risk, so the six modules become six characterised objects rather than six colours. It is also the most print- and slide-friendly arrangement.",
+   "cons": "Individual nodes are too small to carry a logo or a positional histogram, so the Fig 3e glyph requirement must be met elsewhere (hover, or on drill-down). Cross-module edges cannot be drawn as real edges and degrade to stubs plus the summary line at the bottom, which under-represents 28.9% of the result. Reading a specific pair requires drilling in. Six force layouts must each be frozen and kept stable.",
+   "best_for": "The reader comparing modules \u2014 someone deciding which module is relevant to their gene, or a talk audience seeing the six-module result for the first time. Works best as the landing state of R3 with any of layouts A/B/C as the drill-down destination."
+  },
+  {
+   "name": "E. Split-screen dual representation with brushed linking",
+   "wireframe": "+------------------------------------------------------------------------------------------+\n| left: [node-link v]                right: [pair UMAP v]      brush either side, both sync |\n+---------------------------------------------+--------------------------------------------+\n|  NODE-LINK (519 nodes / 2,620 edges)        |  PAIR UMAP (180,000 pairs, 2,620 lit)      |\n|                                             |                                            |\n|      o------[]      o---[]                  |        . . :. . .    .                     |\n|     o \\\\   //[]    o//  []                   |     . .::::::::. . .                       |\n|      o \\\\ // []   o/    []                   |    ..:::@@@:::::..                         |\n|       o \\X/  []  o      []                   |   .::::@@@@@@::::.   @ = gated (2,620)     |\n|        o /\\  []   o     []                   |    ':::@@@@@:::'     . = scored, not gated |\n|      [ brushed region highlighted ]          |     [ brushed points highlighted ]         |\n|                                             |                                            |\n|  selected: 47 nodes / 112 edges              |  selected: 112 pairs                       |\n+---------------------------------------------+--------------------------------------------+\n|  SELECTION TABLE (112 edges)  sort: phylo score v            [export CSV] [to workbench]  |\n|  protein   utr        score  npmi   co   clades  fam  conc  ZNF   module    consensus     |\n|  prot_0040 utr5_0004  1.769  .628  175    23     143  .09  .000   M6 x M6   yes           |\n|  prot_0129 utr5_0022  0.940  .512  210    14      98  .18  .012   M2 x M1   yes           |\n|  prot_0101 utr3_0106  0.858  .478  130    16      77  .21  .000   M5 x M1   yes           |\n|  ...                                                                                      |\n+------------------------------------------------------------------------------------------+\n| left pane options:  node-link | matrix | arc | sankey | small-multiples                    |\n| right pane options: pair UMAP | score histogram | raw-vs-corrected scatter | 6x6 matrix    |\n+------------------------------------------------------------------------------------------+",
+   "pros": "Every alternative representation earns its place without competing for the same screen \u2014 the reader chooses two at a time and they are brushed-linked, so a cluster of points in the UMAP lights up as a subgraph and vice versa. The raw-vs-corrected scatter can sit on the right while the node-link sits on the left, which makes the artifact argument visible AND spatial. The selection table below is the accessible, exportable, sortable equivalent of whatever is drawn above, so nothing is image-only. Naturally accommodates the arc, Sankey, matrix and small-multiples units as pane options rather than as separate pages.",
+   "cons": "Two panes on a laptop means each is roughly 700px wide \u2014 too narrow for node glyphs carrying logos, so this layout cannot satisfy the 'node glyph with consensus logo' part of the requirement on its own. Brushing across two different embeddings needs careful explanation or it implies the two spaces are comparable, which they are not. More UI machinery than the other layouts and the most opportunity for a reader to end up in a combination that makes no sense.",
+   "best_for": "The analyst \u2014 someone interrogating the result rather than reading it: checking whether the gated pairs occupy a distinct region of the UMAP, whether high-ZNF pairs cluster, or whether one module's edges are systematically weaker. Best offered as a secondary 'explore' mode reachable from A, B or C, not as the landing view."
+  }
+ ],
+ "open_questions": [
+  "BLOCKING, and it lands squarely on this view: the manuscript's only named M2 example says 'MLXIPL \u2026 contains the M2 utr3_0027 motifs', but modules.json assigns utr3_0027 to M1 while the code that produced Fig 4a (build_mlxipl_signatures.py, MLXIPL_M2_signatures.csv) uses utr3_0227, which is M2. utr3_0227 is also a degree-37 UTR hub in the network. Whichever way the M2 module card and node label are built, the portal will expose the inconsistency. One question to the author; build on utr3_0227 in the meantime.",
+  "Which module palette is canonical? Three conflicting mappings exist: the MCOL used identically by four published figure scripts (M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73), the CATEGORICAL cycle in motif_umap/make_individual_figures.py (M1 gray, M2 blue, M3 orange, M4 teal, M5 purple, M6 sky blue), and an unimplemented proposal in _shared/COLOR_TABLE.md. I recommend MCOL because Fig 3d/3e/ED3b use it, but then any embedded Fig 3c UMAP image will disagree unless recoloured at bake time. Confirm before the legend is written.",
+  "Should the 757 cross-module edges get consensus-pair scores? Zero of them have one today because 17_consensus_association.py was only run within modules, and the M1-M5 block (192 edges, the highest mean cross score at 0.325) is the manuscript's own headline cross-module observation. consensus_presence.npz makes the computation a bitwise AND, but nobody has measured the runtime or decided whether the results are publishable. This is the single highest-value new computation for R3.",
+  "Is the STREME gap-fill in scope before the node glyph is designed? 68 of the 519 network nodes have no significant PWM. Running the 387 never-run clusters is reportedly ~15 min at WORKERS=10 with the binary at /Users/wangyanz/software/meme/bin/streme, but roughly 100-150 protein clusters are expected to return nothing even after running. The layout should be designed against the coverage it will actually have, not retrofitted.",
+  "What is the default landing state of R3? I would open on the 52-node 'as published' preset (113 edges, density 0.167, 40 of them cross-module) so a reader from the paper recognises it, with a one-click expansion to all 519. But that means the landing view shows 4.3% of the edges. Confirm the author is comfortable with a curated default, or switch to the six-panel module atlas.",
+  "Should the relaxed tier (npmi_mip_APC > 0.10, 7,210 edges over 835 nodes, 4,590 of which fail the gate) be reachable from the network view at all, or only from a cluster's partner table? Enabling it on the canvas nearly triples the edges and adds 316 nodes, which is a genuine hairball. My recommendation is to allow it only in ego/module scope, never in the full canvas.",
+  "Is a live-force 'nudge' mode wanted alongside the frozen layout? Frozen positions are required for deep links and reproducibility, but readers will want to untangle local regions. If yes, the reset must be prominent and the URL must record which mode produced the picture.",
+  "No cross-reference exists from the 1,226 discovered consensus to any known RBP motif database (CISBP-RNA, RBPmap, ATtRACT, Ray et al.) anywhere in the trees. So a node labelled UCUCC cannot answer 'is that the PTBP motif?', and the manuscript's own SRSF3/4 and PTBP attributions for utr5_0096 and utr3_0215 have no enrichment row in the data. Should those be badged as 'author inference from literature' distinct from 'evidence in this dataset'? TOMTOM ships with the same MEME install and could close this later.",
+  "Which quantity should be the default edge encoding \u2014 phylo_corrected_score (the layout weight, range 0.146-1.769) or npmi_mip_APC (the association strength, 0.100-0.721)? They are correlated but not identical, since the score multiplies in (1 - clade_concentration) and log1p(n_indep_clades). I default to phylo_corrected_score for width because it is what the modules were built from, but a reader thinking in terms of association strength may expect NPMI.",
+  "Should sub-threshold ghost edges be available globally or only per-selection? Globally they would show the reader the full evidence landscape (58,204 pairs have npmi_mip_APC > 0), but they would also make the canvas unreadable and risk being screenshotted out of context. I have specified per-selection only; confirm.",
+  "The pair UMAP coordinates live in sequence_analysis_v3_0515, a tree that nothing in the v4 pipeline references or regenerates, and they cannot be recomputed to match the published figure. If the UMAP pane is built, the file must be copied into a versioned snapshot with its mtime and SHA-256 recorded. Confirm no newer version exists.",
+  "Should the three unassigned-endpoint edges (prot_0291 x utr5_0013, prot_0108 x utr3_0355, prot_0058 x utr3_0139) be drawn in the main canvas as isolated dyads, or moved to a small 'ungrouped pairs' tray? They are real gated edges but they float outside the giant component and will look like a rendering error."
+ ]
+}

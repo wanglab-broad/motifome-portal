@@ -1,0 +1,99 @@
+{
+ "built": "2026-09-02",
+ "counts": {
+  "transcripts": 18093,
+  "genes": 17847,
+  "motifs": 889215,
+  "clusters": 900,
+  "edges": 2620,
+  "cross_module_edges": 757,
+  "modules": 6
+ },
+ "nt_domain": [
+  -8.0,
+  0.0
+ ],
+ "assertions_passed": 10,
+ "assertions_total": 11,
+ "payloads": {
+  "gene": 18093,
+  "cluster": 900,
+  "modules": 6,
+  "network": 1,
+  "search_rows": 18093,
+  "search_aliases": 40962
+ },
+ "regions": {
+  "utr5": 118997,
+  "utr3": 515752,
+  "protein": 254466
+ },
+ "mrna_length": {
+  "median": 2923,
+  "p99": 8736,
+  "max": 11426,
+  "min": 224
+ },
+ "coupling": {
+  "rows": 145406,
+  "mean_per_transcript": 8.04,
+  "median_per_transcript": 2.0,
+  "max_per_transcript": 203,
+  "pct_transcripts_with_pair": 65.2
+ },
+ "nt": {
+  "domain": [
+   -8.0,
+   0.0
+  ],
+  "encode": "q = clip(round(255 * (v + 8.0) / 8.0), 0, 255)",
+  "decode": "v = -8.0 + q * 8.0 / 255",
+  "regions": [
+   "utr5",
+   "utr3"
+  ],
+  "no_cds_or_protein_track": true,
+  "positions_scanned": 32745544,
+  "true_global_min": -8.25,
+  "true_global_max": -0.001274,
+  "positions_clamped": 4,
+  "note": "NTScore exists for 5'UTR and 3'UTR only. The measured global minimum is -8.25, so 4 of 32,745,544 positions fall below the quantization domain and clamp to the darkest bin. Build assertion 10 is recorded as failed rather than weakened."
+ },
+ "coverage": {
+  "clusters_with_logo": 456,
+  "clusters_with_term": 463,
+  "clusters_with_module": 513,
+  "clusters_in_network": 519,
+  "edges_with_consensus_pair": 1430
+ },
+ "empty_states": {
+  "clusters_no_module": 387,
+  "clusters_no_term": 437,
+  "clusters_no_logo": 444,
+  "clusters_total": 900,
+  "utr_clusters_no_gated_partner": 282,
+  "utr_clusters_total": 600,
+  "prot_clusters_no_gated_partner": 99,
+  "prot_clusters_total": 300,
+  "edges_cluster_level_only": 1190,
+  "edges_total": 2620,
+  "transcripts_no_module": 58,
+  "transcripts_total": 18093
+ },
+ "sizes": {
+  "gene_shard_raw_mean": 18066,
+  "gene_shard_raw_max": 82748,
+  "gene_dir_raw_bytes": 326867181,
+  "search_json_bytes": 522031,
+  "search_alias_json_bytes": 1283581,
+  "network_json_bytes": 508602,
+  "cluster_dir_raw_bytes": 48028257,
+  "gene_shard_gzip_mean": 6068,
+  "gene_shard_gzip_max": 19449,
+  "gene_dir_gzip_bytes": 109795412
+ },
+ "sort_keys_forbidden": [
+  "npmi_raw"
+ ],
+ "source": "MIRTO — human GRCh37, RefSeq transcripts joined on refseq_id_without_ver"
+}

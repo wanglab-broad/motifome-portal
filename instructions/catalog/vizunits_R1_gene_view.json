@@ -1,0 +1,1477 @@
+{
+ "requirement": "R1 \u2014 GENE/TRANSCRIPT VIEW. A user searches a gene symbol, RefSeq, ENSG or ENST and lands on one transcript page that renders (a) the 5'UTR and 3'UTR nucleotide sequences with every called motif highlighted in place, (b) the protein sequence with every called protein motif highlighted in place, (c) the per-nucleotide NTScore beneath the two UTRs, (d) the annotation evidence attached to each motif (CLIP/miRNA on the RNA side; InterPro/UniProt/MobiDB/SignalP on the protein side), and (e) \u2014 the point of the paper \u2014 the coupling between the two languages *in this transcript*: which protein-motif cluster present here forms a phylogenetically-gated pair with which UTR-motif cluster present here. Every highlight must be clickable into its cluster (R2) and its module (R3), every absence must be an explained state rather than a blank, and the whole view must be a citable URL.\n\nMEASUREMENTS I MADE THAT CHANGE THE DESIGN (all run with /opt/anaconda3/envs/bio/bin/python, scripts in .../scratchpad/r1cat/):\n1. PROTEIN MOTIFS CAN LIVE ON THE SAME NUCLEOTIDE AXIS AS UTR MOTIFS. cds_sequence length == 3*len(protein_sequence) + 3 for 19,210/19,210 rows (stop codon included; 99.84% start ATG, 100% end in a stop). So the exact projection is mRNA_start = len(utr5) + 3*motif_start, mRNA_end = len(utr5) + 3*motif_end + 2. Verified against real codons on ACTB (aa 23-27 DDAPR -> mRNA 153-167 -> GACGATGCCCCCCGG). No candidate design used this; all four drew three disconnected axes. This single fact enables the unified-axis layout and the in-transcript coupling arcs.\n2. IN-TRANSCRIPT COUPLING IS VIABLE BUT MUST BE RANKED. Counting co-present gated cluster pairs per transcript (2,620 edges from phylo_corrected_candidates.csv against each transcript's own cluster set): mean 8.04, median 2, p75 7, p90 23, p99 88, max 203; 11,792/18,093 transcripts (65.2%) have >=1; 17.2% exceed 12 and would become a hairball. ACTB has exactly 3. SOX2 33, MLXIPL 12, RET 12. So arcs default to top-N by phylo_corrected_score, never \"draw them all\".\n3. \"COLOR BY CLUSTER\" IS NOT A LEGITIMATE ENCODING. Distinct motif_clusters per transcript: median 26, p90 55, p99 80, max 108. 13.7% of transcripts have <=12. A 26-way categorical palette is not perceptually resolvable, so cluster identity must live in labels/selection/tooltip, and fill must encode module (6 + unassigned) or region.\n4. THE NTSCORE DOMAIN IS ROUGHLY [-8, 0], NOT [-5, 0]. Over 1,200 sampled transcripts per file: utr3 min -7.688, utr5 min -7.281, max never above -0.002 (the score is strictly negative). A [-5,0] domain clips real data.\n5. NTSCORE ALIGNMENT IS EXACT FOR THE PORTAL'S UNIVERSE. For all 18,093 motif-bearing transcripts, both HDF5 arrays are present and array length == region sequence length: 18,093/18,093 aligned, 0 misaligned, 0 missing, in BOTH files. But the 3'UTR file holds 18,585 keys, and among the 492 extras I found length mismatches \u2014 the build must restrict to the 18,093 and assert.\n6. THE \"7,784 nt MODEL CONTEXT CAP\" IS AN ARTIFACT OF THE WRONG COLUMN. transcript_length is not the mRNA length (ACTB: 1,059 vs actual 84+1,128+600 = 1,812; it is shorter than utr5+cds+utr3 in 19,210/19,210 rows). Real mRNA length = len(utr5)+len(cds)+len(utr3): motif-bearing median 2,923, p99 8,736, max 11,426; motif-free median 10,749, max 109,224 (TTN). 445 transcripts exceed 11,426 and all lack motifs, but 672 under it also lack motifs. The empty state must NOT quote 7,784 nt as a hard cap.\n7. LONG PROTEIN MOTIFS ARE LESS ALARMING THAN FEARED. Protein motif_length median 8, p99 54, max 535, but as a fraction of its own protein: median 0.013, p99 0.118, max 0.464. Zero instances cover >50% of a protein; 126 cover >25%.\n8. THE MOTIF LAYER IS SINGLE-LANE BY PROOF; ONLY ANNOTATION LAYERS NEED PACKING. Max stacking depth is exactly 1 across all 53,367 (transcript, region) groups (survey, exhaustive), and projected protein motifs occupy CDS coordinates disjoint from UTR motifs \u2014 so one lane is valid across the entire mRNA. InterPro (median 5, max 436 domains/transcript), UniProt features and 4-method CLIP peaks DO overlap and need interval packing.\n9. ACTB (NM_001101) IS THE RIGHT DEFAULT. 3 utr5 motifs (all utr5_0004), 13 utr3, 4 protein (all prot_0040) \u2014 and prot_0040 x utr5_0004 is the single highest-scoring gated pair in the whole analysis (phylo_corrected_score 1.7694, co_count 175, 23 clades, frac_co_ZNF 0.000). It exercises coordinates, join, projection, clustering, annotation and coupling in one screen.\n10. A CLUSTER LABEL CAN CONTRADICT ITS OWN INSTANCE'S ANNOTATION. ACTB's protein motifs are in prot_0040, whose top cluster-level enrichment is \"Histone-fold\" (InterPro, 26.5x), while the instance's own InterPro is \"Actin family\". Both are correct at their own level; the UI must show both and never let the cluster headline overwrite the instance fact.",
+ "units": [
+  {
+   "id": "search_typeahead",
+   "name": "Identifier typeahead",
+   "what_it_shows": "Resolution of a typed gene symbol, RefSeq, ENSG or ENST to one transcript, with motif count and module badges per candidate.",
+   "encoding": "Grouped rows by entity type; matched substring bolded; right-aligned motif count as a numeral plus a 40px bar against the corpus p99 (142); module colour dots.",
+   "data_source": "Built at bake from /Users/wangyanz/.../data/processed/motif_full_annotations.parquet (gene_symbol, sequence_id) + /Users/wangyanz/Desktop/Project/sequence_design/data/GRCh37_latest_rna_sequence_pairs_long_transcript.parquet ('Gene stable ID','Transcript stable ID',refseq_id_without_ver). 17,847 symbols + 18,093 RefSeq + 20,481 ENSG + 20,481 ENST.",
+   "interactions": [
+    "debounced filter",
+    "arrow/enter navigation",
+    "paste an ID",
+    "routes to excluded state when the symbol has no motifs"
+   ],
+   "library": "none (framework-native select)",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "precompute_needed": "Yes \u2014 one search_index.json, measured 1.71 MB raw / 0.42 MB gz.",
+   "why_it_earns_its_place": "R1 begins with 'user searches'; without ID resolution the view is unreachable. ENSG/ENST map 1:1 to RefSeq in the search direction so no disambiguation UI is needed."
+  },
+  {
+   "id": "tx_identity_header",
+   "name": "Transcript identity header",
+   "what_it_shows": "Symbol, RefSeq, ENSG/ENST, the three region lengths, the true mRNA length, and per-region motif counts.",
+   "encoding": "Two-row header; region lengths as chips in region colours (utr5 #E69F00, utr3 #A85A00, protein #0072B2); mRNA length computed as len(utr5)+len(cds)+len(utr3), never from transcript_length.",
+   "data_source": "GRCh37_latest_rna_sequence_pairs_long_transcript.parquet (utr5_sequence, cds_sequence, utr3_sequence, protein_sequence) deduplicated on refseq_id_without_ver; counts from motif_full_annotations.parquet grouped by (sequence_id, region).",
+   "interactions": [
+    "copy any identifier",
+    "external links to RefSeq/Ensembl/UniProt"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Anchors every coordinate on the page and prevents the transcript_length trap I measured (ACTB 1,059 vs true 1,812)."
+  },
+  {
+   "id": "tx_schematic",
+   "name": "Transcript-scale 5'UTR\u2013CDS\u20133'UTR schematic",
+   "what_it_shows": "The whole mRNA as one proportional bar with the three regions, the AUG and stop landmarks, and every motif as a tick \u2014 the orienting object before any zoom.",
+   "encoding": "Single horizontal bar, segment widths exactly proportional to region length (ACTB 84 / 1,128 / 600), region fills; AUG and stop as vertical rules; motif ticks 2px in module colour beneath. Never draw the three regions at equal width \u2014 that is the commonest lie in this genre.",
+   "data_source": "Region lengths from the sequence parquet; motif positions from motif_full_annotations.parquet (region, motif_start, motif_end) with protein motifs projected via utr5_len + 3*aa.",
+   "interactions": [
+    "click a region to scroll",
+    "drag to set the detail viewport",
+    "hover a tick for a mini card"
+   ],
+   "library": "none / d3-scale",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The requirement asks explicitly for the transcript-scale overview; it is also the only place a reader sees that the 3'UTR is where 58% of all motifs live."
+  },
+  {
+   "id": "unified_mrna_axis",
+   "name": "Unified mRNA coordinate axis (protein projected onto nucleotides)",
+   "what_it_shows": "All three regions AND the protein motifs on one continuous nucleotide axis, so a protein motif and a UTR motif in the same transcript are spatially comparable for the first time.",
+   "encoding": "One d3-scaleLinear from 0 to len(utr5)+len(cds)+len(utr3). Protein motif spans mapped as [utr5_len + 3*motif_start, utr5_len + 3*motif_end + 2]. A distinct hatch or outline marks projected (codon-derived) spans so they are never mistaken for directly-called nucleotide motifs.",
+   "data_source": "Verified projection: cds_sequence length == 3*len(protein_sequence)+3 in 19,210/19,210 rows; checked against real ACTB codons (aa 23-27 DDAPR -> mRNA 153-167 -> GACGATGCCCCCCGG).",
+   "interactions": [
+    "toggle unified vs per-region axes",
+    "hover a projected span to see its codons"
+   ],
+   "library": "d3-scale",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "precompute_needed": "No \u2014 arithmetic at render time from lengths already in the shard.",
+   "why_it_earns_its_place": "This is the missing primitive. All four candidate designs drew three disconnected axes, which makes the paper's central bilingual claim un-showable in a single transcript. It is also free: the arithmetic is exact and verified."
+  },
+  {
+   "id": "pair_arc_layer",
+   "name": "In-transcript coupling arcs (protein motif \u00d7 UTR motif)",
+   "what_it_shows": "For THIS transcript, arcs joining a protein motif to a UTR motif whose clusters form a phylogenetically-gated pair \u2014 literally 'protein motif X pairs with UTR motif Y here'.",
+   "encoding": "Bezier arcs below the motif lane on the unified axis. Arc thickness ~ phylo_corrected_score (range 0.146\u20131.769), colour by module, anchored at the highest-scoring instance of each cluster. Default top-8 by score; a count chip reads 'showing 8 of 33'.",
+   "data_source": "phylo_corrected_candidates.csv (protein, utr, phylo_corrected_score, co_count, n_indep_clades, clade_concentration, frac_co_ZNF) intersected with this transcript's own cluster set from motif_full_annotations.parquet.",
+   "interactions": [
+    "hover an arc for the four gate values",
+    "click to open /pair/",
+    "toggle strict (2,620) vs suggestive (7,210) tier",
+    "expand to all N arcs"
+   ],
+   "library": "d3-shape",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "must",
+   "precompute_needed": "Yes \u2014 per-transcript arc list; I measured mean 8.04 pairs/transcript, median 2, p90 23, max 203, 65.2% of transcripts have >=1.",
+   "prior_art": "Arc/ribbon diagrams in RNA secondary structure viewers (R-chie, forna) and Circos link tracks.",
+   "why_it_earns_its_place": "The single biggest gap in all four candidate designs. They relegate pairing to the network view, so the reader never sees the coupling in the gene they actually searched for. ACTB shows exactly 3 arcs, including the top-scoring pair in the entire analysis."
+  },
+  {
+   "id": "pair_arc_empty",
+   "name": "No-coupling state",
+   "what_it_shows": "That 6,301 of 18,093 transcripts (34.8%) have zero co-present gated pairs, and why \u2014 their clusters' pairs did not survive the four-condition gate.",
+   "encoding": "Inline muted card in the arc lane's vertical space, stating the count and the gate, with a one-click switch to the suggestive tier (which lifts coverage to 92.3%).",
+   "data_source": "Computed absence against phylo_corrected_candidates.csv; gate wording verbatim from .../03.interacting_modules/MODULES_REPORT.md.",
+   "interactions": [
+    "switch to suggestive tier",
+    "open the methods explainer"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A third of transcripts hit this. Silently drawing nothing would read as a rendering bug rather than the real scientific result it is."
+  },
+  {
+   "id": "codon_bridge",
+   "name": "Codon bridge \u2014 protein motif to its encoding nucleotides",
+   "what_it_shows": "The exact CDS nucleotides that encode a selected protein motif, shown as triplets under the amino acids.",
+   "encoding": "Monospace codon row aligned 3:1 under the amino-acid row, motif codons tinted, reading-frame positions 1/2/3 marked with a repeating tick.",
+   "data_source": "cds_sequence[3*motif_start : 3*motif_end+3] from the sequence parquet; verified exact on ACTB's four protein motifs.",
+   "interactions": [
+    "copy the codon string",
+    "toggle codon/amino-acid display",
+    "jump to those coordinates on the unified axis"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Makes the bilingual claim physical rather than metaphorical, and is the only way a reader can check that a protein motif and a UTR motif are on the same molecule."
+  },
+  {
+   "id": "frame_ruler",
+   "name": "Reading-frame / codon ruler",
+   "what_it_shows": "Codon boundaries and frame across the CDS portion of the unified axis.",
+   "encoding": "Repeating 1-2-3 tick pattern; major ticks every 10 codons; amino-acid index on a secondary scale.",
+   "data_source": "Derived from len(utr5) and len(cds); no new data.",
+   "interactions": [
+    "toggle nt vs codon vs aa numbering"
+   ],
+   "library": "d3-axis",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Without it the unified axis silently mixes a 1-nt and a 3-nt quantum and readers will mis-measure protein motif lengths."
+  },
+  {
+   "id": "utr5_ntscore",
+   "name": "5'UTR NTScore track",
+   "what_it_shows": "The model's per-nucleotide conditional log-probability along the 5'UTR \u2014 the manuscript's central quantity, at full resolution.",
+   "encoding": "Filled area, x = position, y = NTScore on a FIXED domain [-8, 0] for cross-transcript comparability, with a dashed rule at the region mean (SeqScore) and a zero rule. Optional per-transcript autoscale, clearly labelled.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/explore_biology/01.protein_localization/analysis/data/h5cache/outputs_utr5_score_0326.h5, group <refseq>/score. I verified: 18,093 keys, exactly 1:1 with the motif transcript set, array length == len(utr5_sequence) in 18,093/18,093, observed min -7.281, max -0.002. ACTB: 84 values, SeqScore -0.8708.",
+   "interactions": [
+    "hover for base + exact score",
+    "brush to zoom (drives the sequence pane)",
+    "toggle the entropy channel",
+    "toggle a 15-nt rolling mean"
+   ],
+   "library": "d3-scale / d3-shape",
+   "render_tech": "Canvas for >2,000 nt, SVG below",
+   "effort": "L",
+   "priority": "must",
+   "precompute_needed": "No if a server reads the h5 (measured 0.202 ms/transcript); yes if static \u2014 quantize to uint8 over [-8,0] per transcript.",
+   "why_it_earns_its_place": "This is what makes the view a scientific instrument rather than coloured text; it is the reason a reader believes a highlighted stretch was called for a reason."
+  },
+  {
+   "id": "utr3_ntscore",
+   "name": "3'UTR NTScore track",
+   "what_it_shows": "Same for the 3'UTR, where the ARE/ELAVL1 biology lives and where 58% of motifs are.",
+   "encoding": "As utr5_ntscore; for regions over ~2,000 nt (p99 6,008, max 7,601) min/max decimate to two points per pixel column so peaks survive downsampling \u2014 never mean-downsample a score track.",
+   "data_source": "/Users/wangyanz/Desktop/Project/sequence_design/data/outputs_utr3_score_0318.h5, group <refseq>/score. Verified 18,093/18,093 present and length-aligned for the portal universe; observed min -7.688. ACTB: 600 values, SeqScore -1.1648. NOTE: the file holds 18,585 keys and some of the 492 extras are length-mismatched \u2014 restrict to the motif universe.",
+   "interactions": [
+    "hover",
+    "brush-zoom",
+    "entropy toggle",
+    "rolling-mean toggle"
+   ],
+   "library": "d3-scale / d3-shape",
+   "render_tech": "Canvas",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "Same as utr5; also the only track that can be visually compared against CLIP peaks to support the paper's ELAVL1 argument."
+  },
+  {
+   "id": "cds_no_score_band",
+   "name": "Explicit 'no score computed' band over the CDS",
+   "what_it_shows": "That NTScore exists for 5'UTR and 3'UTR only \u2014 there is no CDS or per-residue protein score anywhere in the project.",
+   "encoding": "A hatched, desaturated band occupying the score lane's full height across the CDS span, labelled 'no per-nucleotide score computed for CDS'. Critically NOT a flat line at zero and NOT a gap.",
+   "data_source": "Absence of any CDS/protein score file; confirmed across the inventory.",
+   "interactions": [
+    "hover for the one-line explanation and a link to methods"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "On a unified axis a gap reads as 'score = 0' or 'nothing here'. A flat line would be an outright fabrication. This is the honest mark for missing data and it costs nothing."
+  },
+  {
+   "id": "plddt_track",
+   "name": "Per-motif pLDDT track (protein)",
+   "what_it_shows": "AlphaFold local confidence for each protein motif \u2014 the substitute for the score track the protein panel cannot have, and the ordered-domain vs IDR axis behind the M1/M5 disorder story.",
+   "encoding": "Step bars, one per protein motif at its span, y on a FIXED 0\u20131 domain (measured min 0.1, median 0.8, max 1.0 \u2014 NOT the 0\u2013100 AlphaFold convention), reference rules at 0.5 and 0.7. Labelled 'per motif, not per residue' and never drawn in the same visual idiom as NTScore.",
+   "data_source": "motif_full_annotations.parquet column plddt (254,466 non-null, protein rows only; null on all UTR rows).",
+   "interactions": [
+    "hover for value and confidence band",
+    "click to select the motif"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Without it the protein half of R1 has no quantitative layer at all. The 0\u20131 scale detail matters: treating it as 0\u2013100 would render every protein motif as 'very low confidence'."
+  },
+  {
+   "id": "motif_lane",
+   "name": "Single-lane motif span layer",
+   "what_it_shows": "Every called motif on the transcript as a discrete positioned block.",
+   "encoding": "One rect per motif, x from motif_start to motif_end+1 (0-based, both ends inclusive), fill = module colour with grey #A7A7A7 for the 45.3% of instances in unassigned clusters, opacity ramped by motif_score. A 1px inset outline plus a 1px gap so the 53,729 exactly-abutting adjacent pairs (9,838 of them same-cluster) never fuse into one false motif.",
+   "data_source": "motif_full_annotations.parquet (sequence_id, region, motif_start, motif_end, motif_cluster, motif_score).",
+   "interactions": [
+    "click to inspect",
+    "hover for a mini card",
+    "j/k keyboard traversal",
+    "drag-select a range"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The core mark of the whole view. One lane is provably sufficient: max stacking depth is exactly 1 across all 53,367 (transcript, region) groups, and projected protein motifs occupy CDS coordinates disjoint from UTR motifs."
+  },
+  {
+   "id": "lane_packer",
+   "name": "Interval lane packer (annotation tracks only)",
+   "what_it_shows": "Overlapping annotation intervals stacked into the minimum number of non-overlapping rows.",
+   "encoding": "Greedy sweep-line row assignment; row count printed in the lane header so a 6-row UniProt lane is understood as density, not noise.",
+   "data_source": "Applies to InterPro domains (median 5, max 436 per transcript), UniProt features, and the 4 CLIP method lanes \u2014 all of which genuinely overlap. Deliberately NOT applied to the motif layer.",
+   "interactions": [
+    "collapse a packed lane to a single density strip",
+    "expand to full rows"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "The brief asks about multi-lane layout for overlapping motifs; the honest answer is that motifs never overlap but annotations do, so the packer belongs here and nowhere else."
+  },
+  {
+   "id": "seq_pane_read",
+   "name": "Wrapped sequence pane with in-place highlights",
+   "what_it_shows": "The actual residues, 60 per line, with motifs highlighted as real text \u2014 the literal wording of R1.",
+   "encoding": "Monospace 13px/1.75, 10-character groups, flat run-length alternation of plain text nodes and bordered motif spans. Background tint = module colour at ~18% alpha, border = region colour. Measured worst case 381 elements for all three regions on one page (median 89), so plain DOM is comfortable.",
+   "data_source": "Sequences from the deduplicated GRCh37 parquet; spans sliced seq[motif_start : motif_end+1] \u2014 the verified contract, exact for 889,215/889,215 rows.",
+   "interactions": [
+    "click a span to inspect",
+    "select text (reports length, GC%, covered motifs)",
+    "copy",
+    "find-in-page",
+    "lazy line mounting via IntersectionObserver"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS (DOM text)",
+   "effort": "L",
+   "priority": "must",
+   "why_it_earns_its_place": "Must be DOM, not canvas: a wet-lab reader's first action is to select and copy a sequence. Canvas would render faster and destroy the primary use case."
+  },
+  {
+   "id": "seq_pane_track",
+   "name": "Track mode for long regions",
+   "what_it_shows": "The whole region as geometry when it is too long to read (3'UTR p99 6,008 nt, max 7,601).",
+   "encoding": "Motif rects + score track on a compressed axis, letters appearing only past ~1.5 px/nt; the mode switch is automatic by default (5'UTR reads, 3'UTR tracks) and manually overridable.",
+   "data_source": "Same as seq_pane_read.",
+   "interactions": [
+    "toggle read/track per region",
+    "auto-switch on zoom threshold",
+    "remember choice"
+   ],
+   "library": "d3-scale",
+   "render_tech": "SVG + Canvas",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Rendering 7,601 characters of readable text is useless; rendering geometry for an 84-nt 5'UTR is equally useless. The view needs both and must pick sensibly."
+  },
+  {
+   "id": "line_score_strip",
+   "name": "Per-line NTScore sparkline",
+   "what_it_shows": "The score for exactly the 60 nucleotides on the line beneath it, keeping score and letters aligned in read mode.",
+   "encoding": "60-cell micro bar strip in the left gutter, sharing the [-8,0] scale and colour ramp with the main track.",
+   "data_source": "The same h5 arrays, sliced per line.",
+   "interactions": [
+    "hover a cell for base + score",
+    "click to select the containing motif"
+   ],
+   "library": "none",
+   "render_tech": "Canvas",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "In read mode the main score track scrolls out of alignment with the text; this keeps the model's evidence adjacent to the residues it refers to."
+  },
+  {
+   "id": "coord_gutter",
+   "name": "Coordinate gutter",
+   "what_it_shows": "1-based position at the start of each sequence line.",
+   "encoding": "Right-aligned muted monospace numerals in a fixed-width gutter; amino-acid index for the protein pane.",
+   "data_source": "Derived from sequence length.",
+   "interactions": [
+    "click a number to copy that coordinate"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A sequence view without coordinates cannot be cross-referenced with any other tool the reader uses."
+  },
+  {
+   "id": "origin_toggle",
+   "name": "3'UTR coordinate origin toggle",
+   "what_it_shows": "3'UTR positions numbered from the stop codon (biologically meaningful) or from the region start (matches the stored data).",
+   "encoding": "Two-state control; the active convention is printed in the ruler header, never implicit.",
+   "data_source": "Region offsets from the sequence parquet.",
+   "interactions": [
+    "toggle; the choice propagates to tooltips, the table and exports"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "The isoform and ARE literature numbers 3'UTR positions from the stop codon; without the toggle every coordinate a reader quotes will be off by len(utr5)+len(cds)."
+  },
+  {
+   "id": "rna_alphabet_toggle",
+   "name": "RNA/DNA alphabet toggle",
+   "what_it_shows": "UTR sequences and motif strings as RNA (U) to match the manuscript, or as the stored DNA alphabet.",
+   "encoding": "Two-state control, RNA default. Applies to 5'UTR and 3'UTR only and NEVER to the protein pane, where U is selenocysteine.",
+   "data_source": "Storage is DNA-only (verified: UTR alphabets are A/C/G/T with zero U). ACTB's utr5_0004 motif CGAGACCGCGT displays as CGAGACCGCGU.",
+   "interactions": [
+    "toggle",
+    "search accepts both forms and normalises to T before matching"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The manuscript writes every RNA motif in RNA alphabet (UCAUC, UCUCC, GCCACC). Without transliteration the portal literally cannot display the motifs the paper names, and a reader typing UCUCC gets zero hits."
+  },
+  {
+   "id": "minimap",
+   "name": "Region minimap with viewport brush",
+   "what_it_shows": "The whole region compressed with motif density and a coarse score silhouette, plus a draggable viewport rectangle.",
+   "encoding": "20px strip: 2px motif ticks in module colour over a compressed score silhouette; translucent viewport rect.",
+   "data_source": "Same motif and score arrays, downsampled at render.",
+   "interactions": [
+    "drag the viewport",
+    "click to centre",
+    "double-click to fit",
+    "shift-drag to zoom a range"
+   ],
+   "library": "d3-zoom",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The only workable navigation for the 587 transcripts with 3'UTRs >= 5,000 nt; without it a reader zoomed to 60 nt is lost in a 7,601-nt region."
+  },
+  {
+   "id": "motif_density_hist",
+   "name": "Motif density histogram",
+   "what_it_shows": "Where motifs bunch along each region for this transcript.",
+   "encoding": "20-bin bar strip under the region header, bars tinted by the dominant module in each bin.",
+   "data_source": "Computed client-side from the loaded motif_start/motif_end array and region length.",
+   "interactions": [
+    "click a bin to scroll the viewport there"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Gives a shape to a dense 3'UTR (up to 182 motifs) that a flat lane of rects cannot convey at overview zoom."
+  },
+  {
+   "id": "coverage_bar",
+   "name": "Region motif-coverage bar",
+   "what_it_shows": "What fraction of the region's bases sit inside a motif, against the corpus median.",
+   "encoding": "Thin bar with a tick at the corpus median (utr5 0.307, utr3 0.261, protein 0.288) so the value is comparative, not absolute.",
+   "data_source": "Computed from motif_start/motif_end; corpus medians precomputed once from motif_full_annotations.parquet.",
+   "interactions": [
+    "hover for exact fraction and percentile"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Roughly a quarter to a third of every region is highlighted; stating that number up front stops a reader concluding the highlighting is meaningless noise."
+  },
+  {
+   "id": "seqscore_tile",
+   "name": "SeqScore tile per region",
+   "what_it_shows": "The region's mean NTScore \u2014 the manuscript's SeqScore \u2014 positioned within the corpus distribution.",
+   "encoding": "Small tile: value plus a marker inside a corpus density strip for that region.",
+   "data_source": "Mean of the h5 score array (ACTB utr5 -0.8708, utr3 -1.1648); corpus distributions precomputed over all 18,093.",
+   "interactions": [
+    "hover for percentile"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "SeqScore is a named quantity in the paper and is free to compute; the corpus context is what makes a single negative number interpretable."
+  },
+  {
+   "id": "gc_sparkline",
+   "name": "UTR composition sparkline",
+   "what_it_shows": "Local GC / AU content along each UTR in a sliding window.",
+   "encoding": "Thin line in the track stack, 50-nt window; labelled as sequence composition, not model output.",
+   "data_source": "Computed from utr5_sequence / utr3_sequence.",
+   "interactions": [
+    "toggle window size",
+    "toggle on/off"
+   ],
+   "library": "none",
+   "render_tech": "Canvas",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Makes the M1 AU-rich vs M2 GC-rich distinction (cluster mean GC 0.344 vs 0.497) checkable in the reader's own gene instead of taken on faith."
+  },
+  {
+   "id": "kozak_inset",
+   "name": "Kozak context inset",
+   "what_it_shows": "The last ~12 nt of the 5'UTR plus the first codons around the AUG, with the -3 and +4 positions marked.",
+   "encoding": "Small monospace inset pinned at the AUG landmark; -3 purine and +4 G called out.",
+   "data_source": "utr5_sequence tail + cds_sequence head; classification vocabulary from .../examples_of_each_gene/M6_utr5_0004_GCCGCCACC_kozak_genes.csv (gene, kozak_bits, minus3_nt, minus3_purine, kozak_context, class) for the 372 genes it covers.",
+   "interactions": [
+    "hover for the Kozak class where the gene is in the 372-gene panel",
+    "'not in panel' otherwise"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "M6's whole story is that utr5_0004 rediscovers the Kozak sequence; showing the actual context at the actual AUG is the most direct possible evidence, and ACTB is an M6 example."
+  },
+  {
+   "id": "polya_marker",
+   "name": "Poly(A) signal literal marker",
+   "what_it_shows": "Occurrences of AATAAA/ATTAAA in the 3'UTR.",
+   "encoding": "Small diamond markers on a thin lane, explicitly labelled 'literal string match, not a model call' and visually distinct from motif rects.",
+   "data_source": "Literal scan of utr3_sequence; no stored source.",
+   "interactions": [
+    "hover for the matched hexamer and position",
+    "toggle off"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Orients a reader at the 3' end at near-zero cost \u2014 but only if it is unmistakably marked as a regex hit rather than a MIRTO output, or it will be mistaken for a discovered motif."
+  },
+  {
+   "id": "rbp_lanes",
+   "name": "CLIP evidence lanes, one per method",
+   "what_it_shows": "Which RBPs annotate each UTR motif, kept in four separate method lanes rather than merged.",
+   "encoding": "Four lanes (eCLIP / PAR-CLIP,PARalyzer / iCLIP,Piranha / iCLIP,CIMS); each hit a labelled tick under its motif; lane header carries the method's corpus coverage.",
+   "data_source": "motif_full_annotations.parquet list columns RBPs_eCLIP, 'RBPs_PAR-CLIP,PARalyzer', 'RBPs_iCLIP,Piranha_0.01', 'RBPs_iCLIP,CIMS'. ACTB's 45-nt AU-rich 3'UTR element carries DDX55, NKRF, SUB1, TIAL1.",
+   "interactions": [
+    "click an RBP to filter the page",
+    "toggle a method lane",
+    "hover for peak evidence"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Only 4 of 203 RBP names appear in all four methods and 166 appear in exactly one; merging them into a single 'RBP' field would erase the method structure that is the honest confidence signal. Follows POSTAR3's stacked-by-method convention."
+  },
+  {
+   "id": "rbp_peak_drawer",
+   "name": "CLIP peak evidence drawer",
+   "what_it_shows": "The actual peaks behind an RBP chip: how many, from which cell lines, at what scores.",
+   "encoding": "Table plus a small cell-line bar chart; peak_id shown verbatim for traceability.",
+   "data_source": "/Users/wangyanz/.../data/processed/00.eclip/motif_rbp_overlaps.parquet \u2014 2,671,559 rows, columns raw_motif_index, peak_id, RBP_name, score, sample, method, Chromosome/Start/End/Strand (verified schema). 325,996 distinct motifs, mean 8.2 peaks each, 19 cell lines.",
+   "interactions": [
+    "filter by cell line",
+    "sort by score",
+    "copy peak_id"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "precompute_needed": "Yes \u2014 per-motif peak aggregates; the 58 MB parquet must not be shipped whole.",
+   "why_it_earns_its_place": "Turns 'TIAL1' from a label into evidence a reader can weigh, and enables a cell-line filter no static figure can offer."
+  },
+  {
+   "id": "rbp_method_badge",
+   "name": "RBP method-agreement badge",
+   "what_it_shows": "How many of the four CLIP methods support a given call.",
+   "encoding": "Four small squares [e][P][i][C], filled per supporting method, with '3 of 4' in text.",
+   "data_source": "The four RBP list columns. Measured distribution over 634,749 UTR motifs: 0 methods 308,753 / 1 144,288 / 2 95,096 / 3 57,474 / 4 29,138.",
+   "interactions": [
+    "hover for which RBPs came from which method"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "A free, honest confidence axis that also explains why PAR-CLIP-only RBPs (ATXN2 115,724, ELAVL1 93,426) dominate raw counts."
+  },
+  {
+   "id": "rbp_alias_note",
+   "name": "RBP nomenclature note",
+   "what_it_shows": "That RBP names are raw POSTAR3 labels and are not normalised.",
+   "encoding": "Small info affordance on the RBP lane header listing the known collisions.",
+   "data_source": "203 union RBP names across the four columns, including U2AF65/U2AF2, TDP43/TARDBP, UNR/CSDE1, IMP3/IGF2BP3, HNRNPH/HNRNPH1, plus opaque 'ACI' (4,960 entries) and 'SDOS'.",
+   "interactions": [
+    "expand the alias list"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "No alias table exists anywhere in the project, so any RBP count is slightly wrong. Saying so is cheap; letting a reader silently double-count U2AF65 and U2AF2 is not."
+  },
+  {
+   "id": "mirna_lane",
+   "name": "miRNA site lane",
+   "what_it_shows": "TargetScan predicted miRNA family sites on the 3'UTR \u2014 sparse, and shown as sparse.",
+   "encoding": "Single lane of small diamonds with family labels on hover; the lane header prints the real coverage (4.698% of 3'UTR motifs).",
+   "data_source": "motif_full_annotations.parquet column mirna_annotations_targetscan (24,251 filled, 219 distinct families).",
+   "interactions": [
+    "hover for the family string",
+    "click to filter",
+    "toggle the lane"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "miRNA sites are the annotation a 3'UTR reader looks for first; printing the 4.7% coverage prevents an empty lane being read as 'no miRNA sites in this gene'."
+  },
+  {
+   "id": "genome_track",
+   "name": "Genomic coordinate lane and browser deep links",
+   "what_it_shows": "Where each UTR motif sits on GRCh37, including exon-split blocks.",
+   "encoding": "Thin lane showing genomic segments with the chromosome and strand in the header; each motif links out to UCSC/IGV.",
+   "data_source": "/Users/wangyanz/.../data/motif_genome_mappings_grch37.parquet \u2014 verified 634,749 rows (all UTR motifs) with columns accession, strand, transcript_motif_start/end, motif_genomic_start, motif_genomic_end, element, mapping_note. GRCh38 twin exists.",
+   "interactions": [
+    "copy a locus",
+    "open UCSC/IGV",
+    "toggle GRCh37/GRCh38"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Lets a reader take a motif straight into their own genome browser and their own data. No equivalent exists for protein-region motifs, which must be stated."
+  },
+  {
+   "id": "interpro_ruler",
+   "name": "InterPro domain ruler",
+   "what_it_shows": "The protein's real domains with true coordinates, so a reader sees whether a motif falls inside a domain or in a linker.",
+   "encoding": "Packed rounded rects with names inside where they fit, coloured by entry type (family / domain / homologous_superfamily / conserved_site / repeat).",
+   "data_source": "/Users/wangyanz/.../annotation_results/annotated_protein_sequences.csv \u2014 verified 109,110 rows over 13,941 RefSeq (77.1% of transcripts), median 5 domains, max 436; joined to .../intermediate/interpro_entry_map.csv (ipr, name, type, go_ids, go_names; 17,814 entries).",
+   "interactions": [
+    "hover for IPR accession, type and GO",
+    "click to interpro.ebi.ac.uk",
+    "collapse to one row"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "'Motif sits inside the Actin family domain' is the single most useful protein-side statement the view can make, and ACTB demonstrates it directly."
+  },
+  {
+   "id": "uniprot_track",
+   "name": "Typed UniProt feature track",
+   "what_it_shows": "Chain, Domain, Region, Helix, Beta strand, Transmembrane, Signal and Modified residue features under the protein \u2014 including the structural ones the shipped comma-joined column silently dropped.",
+   "encoding": "Lanes grouped by feature class; empty-description features labelled by their type rather than omitted.",
+   "data_source": "/Users/wangyanz/.../data/processed/03.uniprot/uniprot_annotation.parquet (1,577,512 features, 35 types, columns type/start/end/description) joined via .../data/idmapping_2026_05_08.tsv (16,911 of 18,093 transcripts, prefer Reviewed).",
+   "interactions": [
+    "filter by feature type",
+    "hover for description and coordinates",
+    "link to uniprot.org"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "should",
+   "precompute_needed": "Yes \u2014 recompute the overlap with the 0-based-corrected rule (~756,192 hits over 231,439 motifs, ~2 min). Do NOT comma-split the shipped uniprot_annotations string: wrong for 6.894% of annotated protein motifs.",
+   "why_it_earns_its_place": "Secondary structure context (39,189 Helix + 30,854 Beta strand motif hits) decides whether a protein motif is in a structured element or a loop, and is invisible in the master table."
+  },
+  {
+   "id": "disorder_track",
+   "name": "Per-residue disorder track",
+   "what_it_shows": "MobiDB disorder, LIP and phase-separation regions as actual residue intervals under the protein sequence \u2014 not just a list of 87 term names.",
+   "encoding": "Stacked interval bars grouped by evidence class (curated / derived / homology / prediction), with curated shown solid and prediction shown faint; default to curated + derived only.",
+   "data_source": "/Users/wangyanz/.../data/raw_annotations/06.mobidb/mobidb_search_2026-05-13T19-55-12.tsv \u2014 verified structure: UniProt acc, term, comma-joined 'start..end' ranges (e.g. '1..2,71..75,233..246'), content_fraction, content_count, protein length. Read with header=None.",
+   "interactions": [
+    "toggle evidence class",
+    "hover for the term and its provenance",
+    "link to mobidb"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "should",
+   "precompute_needed": "Yes \u2014 parse the range strings and join to RefSeq via idmapping; nobody has built this.",
+   "why_it_earns_its_place": "The IDR narrative (M1, M5, prot_0072 phase separation) is currently only assertable at cluster level. This makes it visible in the reader's own protein, and it pairs naturally with the pLDDT track."
+  },
+  {
+   "id": "signal_peptide_marker",
+   "name": "Signal peptide / transmembrane marker",
+   "what_it_shows": "The N-terminal signal peptide and any transmembrane segments \u2014 the M3 secretory story.",
+   "encoding": "Distinct N-terminal cap glyph plus TM segment blocks on the protein axis.",
+   "data_source": "Prefer UniProt 'Signal' features from uniprot_annotation.parquet (2,366 protein motifs, 7.9x more than the shipped column). The signalp_annotation column covers only 298 motifs (0.117%) and was derived from the SignalP 6.0 TRAINING SET, not from running SignalP \u2014 label it accurately if shown at all.",
+   "interactions": [
+    "hover for source and coordinates"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "M3's claim is Leu-rich signal peptide x GC-rich 5'UTR; the marker makes that checkable in RET/VEGFB/TIMP3. But the shipped SignalP column is close to useless and must not be presented as a SignalP prediction."
+  },
+  {
+   "id": "elm_marker",
+   "name": "ELM short linear motif marker",
+   "what_it_shows": "Overlapping ELM functional sites on the protein.",
+   "encoding": "Small labelled ticks; sparse by nature (797 motifs, 0.313% of protein motifs).",
+   "data_source": "Re-join .../data/raw_annotations/02.elm/elm_instances.tsv (4,277 instances: Primary_Acc, Start, End, ELMIdentifier, Accession, References) + elm_classes.tsv (353 classes with Regex, Probability). The master table keeps only FunctionalSiteName, and 69 of 206 site names map to 2\u201310 classes, so text->accession is ambiguous.",
+   "interactions": [
+    "hover for regex and PMIDs",
+    "link to elm.eu.org"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "nice",
+   "precompute_needed": "Yes \u2014 a ~15-line re-join to recover ELMIdentifier; without it no chip can be deep-linked.",
+   "why_it_earns_its_place": "Rare but the most mechanistically interpretable protein annotation available; worth doing properly or not at all."
+  },
+  {
+   "id": "motif_inspector",
+   "name": "Motif instance inspector",
+   "what_it_shows": "The full record of one clicked motif: sequence in both alphabets, coordinates, length, cluster, module, scores, and every annotation.",
+   "encoding": "Sticky side panel (never a modal, never inline \u2014 the sequence must not reflow); sectioned card stack with the motif sequence in monospace flanked by 8\u201310 greyed context residues.",
+   "data_source": "motif_full_annotations.parquet row by raw_motif_index plus the per-transcript annotation shard.",
+   "interactions": [
+    "open cluster",
+    "open module",
+    "copy sequence",
+    "copy coordinates",
+    "pin",
+    "j/k to the next motif"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "'Click detail' is an explicit requirement; a side panel rather than a modal is what lets a reader keep their place in a 7,601-nt sequence."
+  },
+  {
+   "id": "annotation_chips",
+   "name": "Annotation chips with provenance",
+   "what_it_shows": "Each annotation as a chip carrying its database, the overlap rule used, and a deep link.",
+   "encoding": "Chip groups per source, tinted by layer (RNA #2E7D9A, protein #9C6B1E), with a superscript rule marker: 'ov' = motif overlaps feature (InterPro/UniProt/ELM), 'in' = motif contained in region (MobiDB/IDPO).",
+   "data_source": "The 11 annotation columns of motif_full_annotations.parquet, MASKED by the `applies` field of /Users/wangyanz/Desktop/Project/sequence_design/sequence_annotation/annotation_coverage_stats.json. InterPro chips from .../01.interpro/motif_interpro_annotations.parquet (overlapping_interpro_labels) + interpro_entry_map.csv \u2014 never by comma-splitting, which is wrong for 41.34% of annotated protein motifs.",
+   "interactions": [
+    "hover for source, rule and corpus coverage",
+    "click for an external deep link",
+    "'why is this empty?' affordance"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Different databases used different overlap semantics and the master table documents none of them; a chip without its rule is an unfalsifiable claim."
+  },
+  {
+   "id": "region_leak_guard",
+   "name": "Annotation region mask (build-time guard)",
+   "what_it_shows": "Nothing visible \u2014 it is the guard that prevents a visible scientific error.",
+   "encoding": "n/a; enforced in the data layer and asserted in CI.",
+   "data_source": "MobiDB is populated on 67.0% of 5'UTR and 25.3% of 3'UTR rows with protein-disorder terms (209,959 spurious rows), plus IDPO 1,825 and SignalP 665, because those builders never filtered region=='protein'. The `applies` field in annotation_coverage_stats.json is the correct rule and reproduces all 8 published coverage numbers exactly.",
+   "interactions": [
+    "build fails loudly if the mask regresses"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Without it the portal tells an RNA biologist that a 3'UTR nucleotide motif has intrinsic protein disorder, on two-thirds of 5'UTR motifs. This is the single highest-embarrassment defect available in R1."
+  },
+  {
+   "id": "cluster_mini_card",
+   "name": "Cluster mini-card in the inspector",
+   "what_it_shows": "The selected motif's cluster at a glance: mini logo or fallback, consensus, size, module.",
+   "encoding": "80px logo + one-line auto-name + instance/gene counts + module chip.",
+   "data_source": ".../intermediate/consensus_repertoire.pkl PWMs (451 of 900 clusters), consensus_meta.csv (cid, consensus, coverage, carriers), plus a per-cluster index.",
+   "interactions": [
+    "click through to the cluster page",
+    "hover a logo column for probabilities"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The R1\u2192R2 handoff. A reader who clicks a highlight wants to know what family it belongs to without a page load."
+  },
+  {
+   "id": "consensus_coverage_warning",
+   "name": "Consensus coverage honesty badge",
+   "what_it_shows": "How much of its own cluster a consensus actually explains, next to any logo shown in R1.",
+   "encoding": "Coverage bar plus the carrier count; below ~0.35 the logo is visually de-emphasised and captioned 'describes 21% of this cluster's instances \u2014 not necessarily this site'.",
+   "data_source": "consensus_meta.csv columns coverage (median 0.365) and carriers. Worked example: utr5_0004#0 CGCCGCCACC has coverage 0.212 over only 51 carriers \u2014 yet ACTB's 5'UTR motifs are in utr5_0004.",
+   "interactions": [
+    "hover for the definition (fraction matched at >=0.5 bits/position)"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "This is the specific misleading unit the brief warns about. A PWM logo beside a highlighted span reads as 'this is the site found in your gene'. At coverage 0.212 that is false, and ACTB \u2014 the default landing gene \u2014 is exactly such a case."
+  },
+  {
+   "id": "label_vs_instance_flag",
+   "name": "Cluster-label vs instance-annotation disagreement flag",
+   "what_it_shows": "When the cluster's headline enrichment label contradicts the instance's own annotation.",
+   "encoding": "Both shown, stacked and labelled by level: 'this instance: Actin family (InterPro)' above 'this cluster overall: Histone-fold, 26.5x'. A small divergence marker when they disagree.",
+   "data_source": "Instance InterPro from motif_interpro_annotations.parquet; cluster label from cluster_term_labels.csv / cluster_term_enrichment.csv.gz. Real case: ACTB's protein motifs are prot_0040, cluster label 'Histone-fold', instance annotation 'ATPase, nucleotide binding domain, Actin family'.",
+   "interactions": [
+    "hover for what each level means"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Occurs on the default landing gene. Letting a gene-level enrichment label overwrite a residue-level fact is exactly how a portal loses expert trust in one screenshot."
+  },
+  {
+   "id": "instance_score_meters",
+   "name": "Instance score percentile meters",
+   "what_it_shows": "Where this instance's motif_score, motif_entropy and pLDDT sit in the corpus and in its own cluster.",
+   "encoding": "Three thin bullet charts: corpus density strip, cluster median tick, instance marker, percentile printed. motif_score domain is negative (min -4.831, median -1.135, max ~0).",
+   "data_source": "Instance values from motif_full_annotations.parquet; corpus and per-cluster quantiles precomputed.",
+   "interactions": [
+    "hover for exact value and percentile"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "A bare 'score -0.94' is uninterpretable; the same number as a percentile against its own cluster is actionable."
+  },
+  {
+   "id": "tooltip_relpos_hist",
+   "name": "Tooltip mini-histogram: position within cluster",
+   "what_it_shows": "Where this instance's relative position falls inside its cluster's own 20-bin positional distribution.",
+   "encoding": "20-bar micro histogram inside the tooltip with this instance's bin highlighted and the cluster median marked.",
+   "data_source": "Per-cluster positional histograms computed for all 900 clusters as relpos=(motif_start+motif_end)/2/region_length (join verified 18,093/18,093, 0 out-of-range); validated against the 142 published pos_hist arrays in streme_pos_cache_all6.pkl.",
+   "interactions": [
+    "appears on motif hover"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "precompute_needed": "Yes \u2014 ~84 KB for all 900 clusters.",
+   "why_it_earns_its_place": "Answers 'is this instance typical of its cluster?' in the hover, which is how a reader judges whether a cap-proximal cluster call actually applies here."
+  },
+  {
+   "id": "tooltip_score_hist",
+   "name": "Tooltip mini-histogram: score in cluster",
+   "what_it_shows": "This instance's motif_score against its cluster's score distribution.",
+   "encoding": "Micro density strip with a marker; shares the negative domain with the main score encoding.",
+   "data_source": "motif_full_annotations.parquet motif_score grouped by motif_cluster.",
+   "interactions": [
+    "appears on hover"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Distinguishes a strong exemplar from a marginal cluster member without opening the cluster page."
+  },
+  {
+   "id": "motif_hover_card",
+   "name": "Motif hover card",
+   "what_it_shows": "Coordinates, sequence, cluster, module, score and top annotation without a click.",
+   "encoding": "Compact dark card anchored to the span, containing the two mini-histograms above.",
+   "data_source": "The loaded transcript payload plus its annotation shard.",
+   "interactions": [
+    "120 ms delay",
+    "dismiss on leave",
+    "pin with a click"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "With a median of 43 motifs per transcript, clicking each one to identify it is unusable; hover is the primary triage interaction."
+  },
+  {
+   "id": "module_fingerprint",
+   "name": "Transcript module fingerprint",
+   "what_it_shows": "How this transcript's motifs distribute across M1\u2013M6 and 'no module'.",
+   "encoding": "Single stacked horizontal bar in module colours with an explicitly hatched grey 'no module' segment and counts on hover.",
+   "data_source": "motif_cluster mapped through modules.json (513 of 900 clusters assigned). SOX2 reads 43 M1 / 3 M2 / rest unassigned; ACTB carries M6 and M1.",
+   "interactions": [
+    "click a segment to filter the tracks",
+    "click through to the module page"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The R1\u2192R3 bridge, and the honest place to show that 45.3% of motif instances belong to no module at all."
+  },
+  {
+   "id": "availability_manifest",
+   "name": "Annotation availability strip",
+   "what_it_shows": "Which panels can be populated for this transcript, before the reader scrolls into an empty one.",
+   "encoding": "Row of pill badges, filled = available, outlined = absent with the reason and the corpus fraction on hover.",
+   "data_source": "Precomputed flags: UniProt accession 16,911/18,093 (idmapping_2026_05_08.tsv); InterPro domain track 13,941/18,093 (annotated_protein_sequences.csv); UTR genome coordinates all 634,749 UTR motifs; module membership 8,846/18,093 (module_gene_index.csv refseq_ids); NTScore both regions 18,093/18,093.",
+   "interactions": [
+    "hover for 'InterPro coordinates exist for 13,941 of 18,093 transcripts; this one is not among them'"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Converts four different kinds of missing data from apparent bugs into stated coverage limits, which is the difference between a resource and a broken page."
+  },
+  {
+   "id": "empty_no_motifs",
+   "name": "Empty state: transcript has no motifs",
+   "what_it_shows": "Why a searched gene returns nothing \u2014 for 1,117 of 19,210 RefSeq transcripts.",
+   "encoding": "Card naming the gene, its true mRNA length, and how that compares to motif-bearing transcripts, with a length bar.",
+   "data_source": "Set difference of the sequence parquet against the 18,093 motif transcripts. MEASURED, and this corrects the surveys: the real mRNA length (utr5+cds+utr3) of motif-bearing transcripts is median 2,923 / p99 8,736 / max 11,426; motif-free is median 10,749 / max 109,224 (TTN). 445 transcripts exceed 11,426 and all lack motifs, but 672 under it also lack motifs.",
+   "interactions": [
+    "suggest another transcript of the same gene if one exists"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Searching TTN is the first thing a sceptical reader does. The message must NOT quote '7,784 nt context cap' \u2014 that number came from the transcript_length column, which I verified is not the mRNA length (ACTB 1,059 vs true 1,812)."
+  },
+  {
+   "id": "empty_symbol_unmapped",
+   "name": "Empty state: symbol not resolvable",
+   "what_it_shows": "The difference between a typo, an alias, and a genuinely excluded gene.",
+   "encoding": "Card with fuzzy symbol suggestions (trigram over the 17,847 symbols) and a distinct branch when the RefSeq exists but carries no motifs.",
+   "data_source": "Search index; note that the sequence parquet has no gene_symbol column, so the 1,117 motif-free transcripts cannot be labelled from local data alone.",
+   "interactions": [
+    "accept a suggestion",
+    "report a missing gene"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "precompute_needed": "Yes, partially \u2014 recovering symbols for the excluded set needs an external RefSeq\u2192symbol map (NCBI gene2refseq or one offline mygene call for 1,117 ids, ~30 KB JSON). Not derivable from files on disk.",
+   "why_it_earns_its_place": "Without it 'TTN' and 'TNT' fail identically, which reads as a broken search rather than a scoped corpus."
+  },
+  {
+   "id": "empty_region_no_motifs",
+   "name": "Empty state: region has no motifs",
+   "what_it_shows": "That 902 transcripts are missing at least one track (808 no 5'UTR motifs, 87 no 3'UTR, 17 no protein).",
+   "encoding": "The sequence renders normally with zero highlights plus a muted inline note; the panel is never hidden.",
+   "data_source": "Absence of rows for that (sequence_id, region) in motif_full_annotations.parquet.",
+   "interactions": [
+    "none"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Hiding the panel would make a real biological/analytical absence indistinguishable from a layout failure."
+  },
+  {
+   "id": "empty_no_annotation",
+   "name": "'No annotation' state per source",
+   "what_it_shows": "That 36.1% of motif instances carry no annotation at all, and which source is empty here.",
+   "encoding": "Greyed 'none' chip in the source's row rather than a hidden row, with the source's corpus coverage on hover.",
+   "data_source": "annotation_coverage_stats.json per-source coverage with correct denominators.",
+   "interactions": [
+    "hover for coverage"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A hidden row implies the source was never consulted; a greyed row states it was consulted and found nothing, which is a different and true claim."
+  },
+  {
+   "id": "filter_chips",
+   "name": "Motif filter chips and score slider",
+   "what_it_shows": "Density control over a page carrying a median of 43 and up to 189 motifs.",
+   "encoding": "Chip row (region, module, annotated-only, cluster, coupled-only) plus a two-handle motif_score range slider with this transcript's score histogram behind the track; a live 'showing 17 of 20' count.",
+   "data_source": "The loaded transcript payload.",
+   "interactions": [
+    "toggle chips",
+    "drag the slider",
+    "filters DIM to ~25% opacity rather than removing spans, so coordinates never shift",
+    "state encoded into the URL"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS + SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Filtering by removal would reflow the sequence and misrepresent density; dimming preserves the true picture while directing attention."
+  },
+  {
+   "id": "coupled_only_filter",
+   "name": "'Only coupled motifs' filter",
+   "what_it_shows": "Just the motifs that participate in a gated pair within this transcript.",
+   "encoding": "Single toggle; when on, uncoupled motifs dim and the arc layer becomes the focus; count printed.",
+   "data_source": "The precomputed per-transcript arc list.",
+   "interactions": [
+    "toggle",
+    "combine with the module filter"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Reduces a 43-motif page to the handful that carry the paper's actual claim \u2014 median 2 pairs per transcript."
+  },
+  {
+   "id": "selection_bus",
+   "name": "Linked selection across representations",
+   "what_it_shows": "That the overview tick, the ribbon rect, the sequence span and the table row are the same object.",
+   "encoding": "One selected-instance id in shared state; all four representations render a consistent selected style, and the non-visible ones scroll into view.",
+   "data_source": "raw_motif_index as the single identity key (unique, 0..889,214).",
+   "interactions": [
+    "select from any representation",
+    "Esc clears",
+    "URL carries ?m=<raw_motif_index>"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "The brief names selection linking explicitly; without a single identity key the four views drift and the page feels like four unrelated widgets."
+  },
+  {
+   "id": "linked_brush",
+   "name": "Linked brush / zoom coupling",
+   "what_it_shows": "One viewport shared by the overview, the score track, the sequence pane and the annotation lanes.",
+   "encoding": "A single [start, end] range in shared state; every track derives its scale from it.",
+   "data_source": "n/a \u2014 interaction state.",
+   "interactions": [
+    "brush the score track",
+    "drag the minimap",
+    "double-click to fit",
+    "zoom to a selected motif with padding"
+   ],
+   "library": "d3-zoom / d3-brush",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Independent zoom per track is the classic genome-browser failure; alignment across lanes is the entire value of a stacked layout."
+  },
+  {
+   "id": "motif_table",
+   "name": "All-motifs table",
+   "what_it_shows": "Every motif on the transcript as sortable, filterable, exportable rows.",
+   "encoding": "Dense table: region, start, end, length, sequence (RNA for UTRs), cluster, cluster name, module, motif_score, entropy, pLDDT, annotation count; region colour as a left rule; inline data bars on numeric columns.",
+   "data_source": "motif_full_annotations.parquet rows for this sequence_id plus the annotation shard.",
+   "interactions": [
+    "sort any column",
+    "row hover cross-highlights the span",
+    "row click opens the inspector",
+    "column visibility",
+    "CSV export of the filtered view"
+   ],
+   "library": "table/grid component",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Per-transcript counts are bounded (median 43, max 189) so no virtualisation is needed, and the table is the accessible, sortable, exportable equivalent of the graphical layer."
+  },
+  {
+   "id": "pair_table",
+   "name": "Coupled-pairs table for this transcript",
+   "what_it_shows": "The gated pairs present here with their four gate values, as the tabular twin of the arc layer.",
+   "encoding": "Rows: protein cluster, UTR cluster, phylo_corrected_score, co_count, n_indep_clades, clade_concentration, frac_co_ZNF, module; sorted by phylo_corrected_score by default.",
+   "data_source": "phylo_corrected_candidates.csv intersected with this transcript's clusters.",
+   "interactions": [
+    "sort",
+    "hover to highlight the corresponding arc",
+    "click to open the pair page",
+    "export"
+   ],
+   "library": "table/grid component",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Arcs are good for gestalt and bad for reading numbers; the gate values must be legible somewhere, and never behind a hover only."
+  },
+  {
+   "id": "gate_gauges",
+   "name": "Four-condition gate gauges (inline)",
+   "what_it_shows": "For any coupling shown in R1, each gate value against its threshold rather than a pass/fail boolean.",
+   "encoding": "Four micro bullet charts: clade_concentration < 0.35, n_indep_clades >= 8, npmi_mip_APC > 0.10, co_count >= 10, plus frac_co_ZNF as a read-only artifact bar on a 0\u20130.5 scale.",
+   "data_source": "phylo_corrected_candidates.csv. ACTB's prot_0040 x utr5_0004: score 1.7694, npmi 0.628, co_count 175, 23 clades, frac_co_ZNF 0.000.",
+   "interactions": [
+    "hover for the condition verbatim from MODULES_REPORT.md"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "must",
+   "why_it_earns_its_place": "Any coupling shown in a gene view will be read as an interaction. Putting the evidence inline \u2014 not behind a details toggle \u2014 is what makes the claim honest at the point of reading."
+  },
+  {
+   "id": "coupling_caveat",
+   "name": "Coupling caveat, inline at the arc layer",
+   "what_it_shows": "That an arc is co-occurrence of motif clusters across genes, not a demonstrated physical interaction in this molecule.",
+   "encoding": "One-line label attached to the arc lane header, not a page-level banner that users learn to ignore.",
+   "data_source": "Verbatim from .../module_gene_members/README.md and MODULES_REPORT.md.",
+   "interactions": [
+    "link to the paralogy explainer"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The arc layer is the one unit in R1 that could be catastrophically over-read. An arc drawn inside a single transcript especially invites 'these two bind each other in this mRNA', which the data cannot support: the evidence is cross-gene co-occurrence."
+  },
+  {
+   "id": "no_attention_note",
+   "name": "'Why is this highlighted?' explainer",
+   "what_it_shows": "How a motif was called \u2014 delta-attention peaks intersected with high NTScore \u2014 and that the underlying attention matrices are not stored.",
+   "encoding": "Short explainer in the inspector with a link to methods; the pipeline figure is explicitly labelled schematic.",
+   "data_source": "Manuscript Methods; PANELS.md states Fig 3a is drawn from synthetic data and no attention matrices exist on disk.",
+   "interactions": [
+    "expand/collapse",
+    "link to methods"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "It is the first question every reader has about a highlight. Answering it honestly \u2014 including that the attribution itself cannot be shown \u2014 is better than leaving them to assume the highlight is a database hit."
+  },
+  {
+   "id": "color_legend",
+   "name": "Encoding legend",
+   "what_it_shows": "What every fill, border, shape and opacity means, including the coordinate convention.",
+   "encoding": "Compact panel with live swatches drawn by the same code as the tracks; states 'coordinates are 0-based, inclusive of both ends' and 'fill = module, grey = no module; cluster identity is in labels, not colour'.",
+   "data_source": "Palette from _shared/manuscript_style.py; module colours from the MCOL mapping used by four published figure scripts (M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73).",
+   "interactions": [
+    "collapse/expand",
+    "click a module swatch to filter"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS + SVG",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Three simultaneous encodings (module fill, region border, score opacity) are unreadable without a key, and the legend is where the 'colour is not cluster' rule gets stated."
+  },
+  {
+   "id": "cluster_color_policy",
+   "name": "Cluster identity encoding policy",
+   "what_it_shows": "Not a chart \u2014 the rule that cluster identity is carried by label, position and selection, never by hue.",
+   "encoding": "Selected cluster gets a single high-contrast accent applied to all its instances on the page; all other clusters keep module fill. A 'highlight cluster X' control replaces a 900-way palette.",
+   "data_source": "MEASURED: distinct motif_clusters per transcript median 26, p90 55, p99 80, max 108; only 13.7% of transcripts have <=12. A categorical palette cannot resolve 26 classes.",
+   "interactions": [
+    "click a cluster name anywhere to accent all its instances",
+    "clear accent"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Three of the four candidate designs offered 'color by: cluster' as a first-class option. At a median of 26 clusters per transcript that produces an unreadable rainbow and implies distinctions the eye cannot make. This unit is the corrective."
+  },
+  {
+   "id": "nt_aa_colors",
+   "name": "Per-character residue colouring",
+   "what_it_shows": "Nucleotide and amino-acid identity as an optional character-level channel.",
+   "encoding": "NT_COLORS A #009E73, C #0072B2, G #E69F00, U/T #D55E00; amino acids by the examples_lib aacol scheme (L #C1121F, hydrophobic #E8862E, polar #2A9D8F, charged #3557A6). OFF by default \u2014 with ~30% of characters already highlighted, per-character colour plus motif tint is unreadable.",
+   "data_source": "_shared/manuscript_style.py NT_COLORS; .../examples_of_each_gene/examples_lib.py aacol().",
+   "interactions": [
+    "toggle on/off",
+    "applies within motifs only, or everywhere"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Matches the manuscript figures and helps at high zoom, but defaulting it on would collide with the motif tint \u2014 the honest default is off."
+  },
+  {
+   "id": "breadcrumb",
+   "name": "Hierarchy breadcrumb",
+   "what_it_shows": "Where the reader is: ACTB / 5'UTR / nt 5-15 / utr5_0004 / M6.",
+   "encoding": "Chips with region and module colours.",
+   "data_source": "Router state plus the cluster index.",
+   "interactions": [
+    "each chip navigates up a level"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The instance\u2192cluster\u2192module hierarchy is four levels deep and easy to get lost in; the breadcrumb is also where the current resolution level is stated."
+  },
+  {
+   "id": "transcript_picker",
+   "name": "Multi-transcript picker",
+   "what_it_shows": "The alternative transcripts of the 215 genes (1.20%) that have more than one, with lengths and motif counts.",
+   "encoding": "Dropdown showing RefSeq, region lengths and motif count; a static label for the 17,632 single-transcript genes.",
+   "data_source": "motif_full_annotations.parquet grouped by gene_symbol over sequence_id; distribution {1:17632, 2:193, 3:17, 4:3, 5:1, 7:1}, max 7 (BAG6).",
+   "interactions": [
+    "select to navigate, preserving region and zoom"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Keying the page on gene_symbol and taking the first sequence_id silently mis-slices these genes \u2014 APEX1's two transcripts have 5'UTRs of 232 and 237 nt, so coordinates from one address the other. The page must be keyed on sequence_id."
+  },
+  {
+   "id": "isoform_scope_note",
+   "name": "Isoform scope note",
+   "what_it_shows": "That the motifome is one transcript per gene, so this page is not an isoform browser.",
+   "encoding": "One line in the header stating which RefSeq is shown and that alternative UTR isoforms are not indexed.",
+   "data_source": "18,093 transcripts over 17,847 symbols.",
+   "interactions": [
+    "link to the isoform case study where one exists"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Prevents a reader concluding that CD47's short 3'UTR isoform has no motifs, when in fact it was never analysed."
+  },
+  {
+   "id": "isoform_case_study",
+   "name": "Long vs short 3'UTR isoform overlay",
+   "what_it_shows": "The Fig 2g comparison for the five genes where isoform-resolved data exists: long-UTR and short-UTR NTScore on a shared axis anchored at the stop codon, with ELAVL1 sites between.",
+   "encoding": "Two stacked score tracks plus a site lane; a scope banner stating this is a fixed case study.",
+   "data_source": "/Users/wangyanz/.../figure2/elavl1_isoform_tracks/data/all_utr3_scores.npz (keys BIRC3-LU/SU, CD44-LU/SU, CD47-LU/SU) + ELAVL1_binding_regions.parquet (1,037 rows: start, stop, score, p-value, q-value, matched_sequence, Gene_name).",
+   "interactions": [
+    "gene tabs",
+    "shared brush",
+    "site q-threshold slider",
+    "hover for matched sequence"
+   ],
+   "library": "d3-scale",
+   "render_tech": "Canvas + SVG",
+   "effort": "L",
+   "priority": "nice",
+   "why_it_earns_its_place": "The only isoform-resolved data in the project and the basis of a manuscript figure; shipping it as a bounded case study is honest, whereas a generic isoform selector would be empty for 18,088 of 18,093 genes."
+  },
+  {
+   "id": "compare_transcripts",
+   "name": "Two-transcript comparison mode",
+   "what_it_shows": "Two transcripts of the same gene stacked on aligned axes, with shared and unique clusters marked.",
+   "encoding": "Two track stacks sharing a scale where lengths permit; shared clusters connected by faint guides.",
+   "data_source": "Two transcript payloads; cluster set intersection.",
+   "interactions": [
+    "pick a second transcript",
+    "toggle align-by-start / align-by-AUG"
+   ],
+   "library": "d3-scale",
+   "render_tech": "SVG",
+   "effort": "L",
+   "priority": "nice",
+   "why_it_earns_its_place": "Useful for the 215 multi-transcript genes and a natural home for future mouse orthologue comparison \u2014 but it serves a small slice and should not precede the core view."
+  },
+  {
+   "id": "pin_tray",
+   "name": "Pinned motif comparison tray",
+   "what_it_shows": "Two or three motifs held side by side for comparison across regions.",
+   "encoding": "Horizontal tray of compact instance cards with aligned fields.",
+   "data_source": "The loaded transcript payload.",
+   "interactions": [
+    "pin from the inspector",
+    "remove",
+    "export the pinned set"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "nice",
+   "why_it_earns_its_place": "The natural way to compare a protein motif with its coupled UTR motif \u2014 the comparison the paper is about \u2014 without losing either."
+  },
+  {
+   "id": "export_fasta",
+   "name": "FASTA export",
+   "what_it_shows": "The region sequence with motifs in upper case and context in lower case.",
+   "encoding": "Standard FASTA with a header carrying gene, RefSeq, region and the snapshot version.",
+   "data_source": "Sequence parquet plus motif spans.",
+   "interactions": [
+    "choose region(s)",
+    "respect active filters",
+    "choose RNA or DNA alphabet"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "The single most requested output from a sequence view; case-marked FASTA is the conventional way to carry annotation into downstream tools."
+  },
+  {
+   "id": "export_bed",
+   "name": "BED export of UTR motifs",
+   "what_it_shows": "UTR motif spans in genome coordinates for a genome browser or bedtools.",
+   "encoding": "BED12-style with exon-aware blocks from the stored genomic segments.",
+   "data_source": "motif_genome_mappings_grch37.parquet (accession, strand, motif_genomic_start/end, segments); GRCh38 twin available. No equivalent exists for protein motifs \u2014 the export must say so.",
+   "interactions": [
+    "choose assembly",
+    "respect filters"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Lets a reader intersect these motifs with their own tracks, which is the strongest possible form of 'take this away and check it'."
+  },
+  {
+   "id": "export_table",
+   "name": "Motif and annotation table export",
+   "what_it_shows": "The visible, filtered motif table as CSV/TSV/JSON.",
+   "encoding": "Filename carries gene, RefSeq, region and snapshot version.",
+   "data_source": "The loaded payload.",
+   "interactions": [
+    "choose format",
+    "filtered vs all"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "Turns the page from a figure viewer into a citable resource at essentially zero cost, since the data is already client-side."
+  },
+  {
+   "id": "export_score",
+   "name": "NTScore array export",
+   "what_it_shows": "The per-nucleotide score for a region as CSV, or the visible window only.",
+   "encoding": "Two columns (position, score) plus a header naming the region and the SeqScore.",
+   "data_source": "The h5 arrays.",
+   "interactions": [
+    "whole region or current viewport"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "The score is the model's primary output and the thing a computational reader most wants to re-plot themselves."
+  },
+  {
+   "id": "export_figure",
+   "name": "Publication figure export",
+   "what_it_shows": "The current track stack as vector SVG or PDF with the manuscript's fonts and palette.",
+   "encoding": "Serialised SVG with inlined styles and a title block carrying gene, RefSeq, snapshot version and active filters.",
+   "data_source": "Live figure state; palette from manuscript_style.py.",
+   "interactions": [
+    "choose SVG/PNG",
+    "include or omit the sequence text",
+    "set width to a Nature column"
+   ],
+   "library": "none",
+   "render_tech": "SVG",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Researchers will put this panel in talks and papers. Emitting vector output in the manuscript's own palette means the portal and the figures stay visually consistent."
+  },
+  {
+   "id": "permalink",
+   "name": "Permalink and citation block",
+   "what_it_shows": "That the exact view \u2014 transcript, region, viewport, filters, selected motif \u2014 is a URL.",
+   "encoding": "Copy button plus a short citation string with the snapshot version and DOI.",
+   "data_source": "Router state; snapshot version from the build manifest.",
+   "interactions": [
+    "copy link",
+    "copy citation"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A paper companion whose views cannot be cited is a demo. Deep links like /gene/ACTB?region=utr3&pos=82 are what make it referenceable in a reply to a reviewer."
+  },
+  {
+   "id": "snapshot_chip",
+   "name": "Data snapshot chip",
+   "what_it_shows": "Which data version the reader is looking at.",
+   "encoding": "Persistent chip 'v1.0.0 \u00b7 built YYYY-MM-DD' in the header, linked to the manifest.",
+   "data_source": "Build manifest with per-input SHA-256, size and mtime.",
+   "interactions": [
+    "click for the manifest"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Reproducibility hygiene; also the only way a reader can tell whether a number they quoted last month still holds."
+  },
+  {
+   "id": "loading_skeleton",
+   "name": "Loading skeleton",
+   "what_it_shows": "Structure while a transcript payload or annotation shard is in flight.",
+   "encoding": "Shape-matched shimmer blocks for the header, track stack and sequence pane so nothing jumps on arrival.",
+   "data_source": "n/a.",
+   "interactions": [
+    "none"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Payloads are small (median ~3.5 KB gzipped) but the h5 read, annotation shard and arc computation arrive at different times; reserved space prevents three visible reflows."
+  },
+  {
+   "id": "error_state",
+   "name": "Error and retry state",
+   "what_it_shows": "An actionable failure naming what could not be loaded.",
+   "encoding": "Card naming the resource, the likely cause and a retry; partial failures degrade to the tracks that did load.",
+   "data_source": "Typed error envelope.",
+   "interactions": [
+    "retry",
+    "copy the failing path"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "A missing annotation shard should cost the annotation lane, not the whole page \u2014 sequence and motifs must still render."
+  },
+  {
+   "id": "keyboard_nav",
+   "name": "Keyboard navigation",
+   "what_it_shows": "Full operation without a mouse: j/k across motifs, arrows to pan, +/- to zoom, Esc to clear.",
+   "encoding": "Visible focus rings on motif spans and rects; a shortcut help overlay.",
+   "data_source": "n/a.",
+   "interactions": [
+    "j/k",
+    "arrows",
+    "+/-",
+    "Esc",
+    "? for help"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Stepping through 43 motifs in order is the natural review workflow, and it is faster by keyboard than by clicking 2px rects."
+  },
+  {
+   "id": "a11y_text_equivalent",
+   "name": "Text equivalent of the track stack",
+   "what_it_shows": "A screen-reader-accessible summary of what the graphical tracks encode.",
+   "encoding": "Visually hidden structured summary per region: length, motif count, SeqScore, and the motif list; the motif table serves as the accessible twin.",
+   "data_source": "The loaded payload.",
+   "interactions": [
+    "exposed to assistive technology only"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Every graphical unit here has a tabular equivalent already; wiring it up costs little and makes the resource usable by readers the visual encoding excludes."
+  },
+  {
+   "id": "print_stylesheet",
+   "name": "Print / static figure mode",
+   "what_it_shows": "The current view as a clean printable panel.",
+   "encoding": "Drops chrome and controls, expands the sequence to full width, prints the legend and the caveat, stamps the URL and snapshot version.",
+   "data_source": "Live view state.",
+   "interactions": [
+    "print preview"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "nice",
+   "why_it_earns_its_place": "Scientists print sequence views and annotate them by hand; a print path that keeps the legend and caveat is a small courtesy with real use."
+  },
+  {
+   "id": "theme_tokens",
+   "name": "Theme tokens (light/dark)",
+   "what_it_shows": "Consistent, WCAG-checked colour in both themes.",
+   "encoding": "CSS custom properties in a three-state block (:root / prefers-color-scheme dark / explicit data-theme), with module and region hexes from manuscript_style.py and contrast checked against both grounds.",
+   "data_source": "_shared/manuscript_style.py PALETTE; the three-state token block from .../results_code_mapping_index/03.panel_code_index.html.",
+   "interactions": [
+    "cycle system/light/dark",
+    "persisted"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "M",
+   "priority": "should",
+   "why_it_earns_its_place": "Sequence views are read for long stretches. Also the place to resolve the three conflicting module palettes in the codebase by picking the four-script MCOL mapping once."
+  },
+  {
+   "id": "example_seed",
+   "name": "Worked-example entry points",
+   "what_it_shows": "Manuscript-vetted genes as one-click entries so the view never opens empty.",
+   "encoding": "Chip rail: gene + the named cluster + module.",
+   "data_source": ".../examples_of_each_gene/examples_table.csv (22 rows: module, gene, UTR_cluster, UTR_match, protein_cluster, protein_match, GO, function, localization) \u2014 GATA3/BCL11B/KLF5 (M1), MLXIPL (M2), RET/VEGFB/TIMP3 (M3), IFI16 (M4), CWC22 (M5), ACTB/EEF2/EIF1 (M6).",
+   "interactions": [
+    "click to open the gene with that cluster pre-selected"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "should",
+   "why_it_earns_its_place": "Already vetted for the manuscript, so the portal's first impression is a gene where the biology is real and checkable."
+  },
+  {
+   "id": "smoke_assertion",
+   "name": "Build-time coordinate assertion",
+   "what_it_shows": "Nothing visible \u2014 it is the regression test that keeps every highlight correct.",
+   "encoding": "n/a; a hard build failure.",
+   "data_source": "Asserts seq[motif_start:motif_end+1] == motifs for all 889,215 rows (currently 100.000000%), motif_length == end-start+1, motif_end < region length, NTScore array length == region length for all 18,093 in both h5 files (I verified 18,093/18,093, 0 misaligned), and the 8 published annotation coverage percentages under the `applies` mask.",
+   "interactions": [
+    "runs in CI and before every data refresh"
+   ],
+   "library": "none",
+   "render_tech": "HTML/CSS",
+   "effort": "S",
+   "priority": "must",
+   "why_it_earns_its_place": "A one-base convention change would silently shift every highlight in the portal with no visible symptom. This is the only thing standing between a data refresh and a page that is confidently wrong."
+  }
+ ],
+ "layout_options": [
+  {
+   "name": "A \u2014 Unified mRNA browser stack (one continuous axis, overview + detail)",
+   "wireframe": "+------------------------------------------------------------------------------------+\n| ACTB  actin beta   NM_001101  ENSG00000075624   [M6][M1]      [link] [export v]     |\n| 5'UTR 84 nt | CDS 1,128 nt (375 aa) | 3'UTR 600 nt | mRNA 1,812 nt | 20 motifs      |\n| avail: [NTScore 5'+3'] [InterPro] [UniProt] [genome coords] [module M6]              |\n+------------------------------------------------------------------------------------+\n| filters [all][M6][annotated][coupled only]  score >-1.0 ---o---   alphabet (o)RNA    |\n+------------------------------------------------------------------------------------+\n| OVERVIEW   one axis, widths proportional to real length                             |\n|  0        84                                       1212                    1812     |\n|  |=5'UTR=|================== CDS =====================|======= 3'UTR ==========|    |\n|          ^AUG                                    ^stop                              |\n| motifs   |# #  #  |  #   ###    ##      #        |  # ## # ### # ##  #  #  #  |    |\n| coupling  \\________/         \\__________________/    \\____/    (3 gated arcs)       |\n| NTScore  ~^~-_/\\~   [//// no score computed for CDS ////]   ~\\/\\__/\\/\\_/\\__/\\_      |\n| viewport [=====]  <- drag; every panel below follows                                |\n+------------------------------------------------------------------------------------+\n| DETAIL  nt 60-200                              [tracks v] [read|track] [1 nt/px]    |\n| ruler    |60      80     100     120     140     160     180     200                |\n| NTScore   ~-\\_/^\\__                    [//// no CDS score ////]                     |\n| motif     [== utr5_0004 ==]  |AUG|   [==== prot_0040  aa 23-27 DDAPR ====]          |\n| frame     \u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7   1 2 3 1 2 3 1 2 3 1 2 3 1 2 3 1 2 3                   |\n| seq   ...GCCGCCAGCUCACC | AUG GAU GAU GAC AUC GCC GCG CUG GUC GUG GAU AAU ...       |\n| aa                        M   D   D   D   I   A   A   L   V   V   D   N             |\n| pLDDT                     [######## 0.87 ########]                                  |\n| domain                    [========= IPR004000 Actin family =================       |\n| RBP e     [GEMIN5][PUM1]                                                            |\n+---------------------------------------------------+--------------------------------+\n| ALL MOTIFS (20)  sortable, CSV                    | INSPECTOR (sticky)             |\n| region|start|end|len|seq|cluster|module|score|ann  | utr5_0004  nt 5-15             |\n| COUPLED PAIRS (3)  score|co|clades|ZNF            | CGAGACCGCGU  M6  score -1.26   |\n+---------------------------------------------------+--------------------------------+",
+   "pros": "The only layout that makes the paper's bilingual claim visible in one glance: protein and UTR motifs share one axis, so coupling arcs are spatially truthful rather than symbolic. Region widths are proportional, so the reader sees that the 3'UTR dominates. The 'no CDS score' hatch turns a data gap into an honest mark instead of a misleading flat line. Overview+detail with one shared viewport is the pattern every genome browser reader already knows (IGV, UCSC, JBrowse), so there is nothing to learn.",
+   "cons": "Requires the projection arithmetic, so a bug there mislocates every protein motif by a factor of three. Mixes a 1-nt and a 3-nt quantum on one axis, which needs the frame ruler to stay honest. The CDS occupies ~62% of the axis for a median transcript while carrying no score and no directly-called nucleotide motifs, so a lot of horizontal space is spent on a region that is mostly a bridge. Dense 3'UTRs (up to 182 motifs) still compress to an unreadable comb at overview zoom.",
+   "best_for": "The paper's reviewers and the computational reader \u2014 anyone whose question is 'does the protein\u2194UTR coupling actually show up in a real transcript?'. Also the best default landing layout, because ACTB demonstrates the top-scoring pair in the whole analysis in a single screen."
+  },
+  {
+   "name": "B \u2014 Mirrored bilingual (RNA left, protein right, coupling gutter between)",
+   "wireframe": "+------------------------------------------------------------------------------------+\n| ACTB NM_001101      coupling: 3 gated pairs   top: prot_0040 x utr5_0004  (1.7694)  |\n| (!) arcs are cross-gene co-occurrence, not binding in this molecule      [why ->]   |\n+----------------------------+------------------------+------------------------------+\n| RNA SIDE                   |   COUPLING GUTTER      | PROTEIN SIDE  375 aa         |\n|                            |                        |                              |\n| 5'UTR  84 nt  SeqScore -0.87|                       | N --------------------- C    |\n| NTScore ~^~-_/\\~-__/^\\~_   |      /----------\\      | pLDDT ####__#####___####__   |\n| motifs [==][=]      [====] |     /            \\     | domain [==== Actin family ==] |\n|        utr5_0004 x3        |    |  prot_0040   |    | motifs [=] [===] [=====] [=]  |\n|                            |    |      x       |    |        aa23 aa37   aa70 aa109 |\n| 3'UTR  600 nt SeqScore -1.16|   |  utr5_0004   |    |         all prot_0040        |\n| NTScore ~\\/\\__/\\/\\_/\\__/\\_ |    |              |    | disorder ___                 |\n| motifs [=][==]  [====] [=] |    |  score 1.769 |    | UniProt [Chain][Helix][Beta] |\n|        ^utr3_0313 AU-rich  |    |  co 175 genes|    |                              |\n| RBP  [TIAL1][DDX55][NKRF]  |    \\____________/      | InterPro chips               |\n| miR  (none - 4.7% covered) |                        |                              |\n|                            |   + 2 more arcs        |                              |\n+----------------------------+------------------------+------------------------------+\n| GATE  clade_conc 0.09<0.35 OK | clades 23>=8 OK | npmi 0.628>0.10 OK | co 175>=10 OK |\n|       frac_co_ZNF 0.000                                                             |\n+------------------------------------------------------------------------------------+\n| [read the 5'UTR] [read the 3'UTR] [read the protein]   sequence panes open below    |\n+------------------------------------------------------------------------------------+",
+   "pros": "Puts the paper's thesis at the centre of the screen literally \u2014 the gutter is the finding. Gives each language its own vertical space and its own idiom, so the RNA side can carry CLIP/miRNA lanes and the protein side domains/disorder without competing for width. The gate values sit directly under the arcs, which is where over-reading happens. Scales well when a transcript has many motifs on one side only. Reads well on a laptop because neither column needs the full 1,812-nt axis.",
+   "cons": "Sacrifices true positional comparability: the two sides have different coordinate systems and different lengths, so an arc's endpoints are symbolic, not metric. A reader cannot tell from this layout whether a coupled UTR motif is near the cap or the poly(A) tail relative to the protein motif. The sequence text is demoted below the fold, which conflicts with the literal wording of R1. Degenerates for the 34.8% of transcripts with zero gated pairs \u2014 the centre column, the whole point of the layout, is empty.",
+   "best_for": "The reader who arrived from the network view or the abstract and whose question is specifically 'which protein motif goes with which UTR motif in this gene?'. Also the best layout for a talk slide or a figure export."
+  },
+  {
+   "name": "C \u2014 Reading-first document view (sequence is the primary object)",
+   "wireframe": "+------------------------------------------------------------------------------------+\n| ACTB NM_001101   [5'UTR][CDS/protein][3'UTR]   RNA alphabet   60 nt/line   [export] |\n+------------------------------------------------------------------------------------+\n| score |  pos | sequence                                          | motifs on line   |\n|-------|------|---------------------------------------------------|------------------|\n| ~^-_  |    1 | ACAGGCCUGA CGAGACCGCGU CCUGCCUCCG CCUUUGCCGA UCC  | utr5_0004  nt5-15|\n|       |      |            ^^^^^^^^^^^                 ^^^^^^     | utr5_0004 nt40-45|\n| _/^\\_ |   61 | UCCGCCCGCC CGCCGCCAGC UCACC                       | utr5_0004 nt67-83|\n|       |      |            ^^^^^^^^^^^^^^^^^                      |                  |\n|=======| AUG  |=================================================  | start codon      |\n|  n/a  |    1 | M   D   D   D   I   A   A   L   V   V   D   N   G  |                  |\n|       |  aa  | AUG GAU GAU GAC AUC GCC GCG CUG GUC GUG GAU AAU GG | codon row (opt)  |\n|  n/a  |   21 | K   D   S   Y   V   G   D   E   A   Q   S   K   R  | prot_0040 aa23-27|\n|       |      |         ^^^^^^^^^^^^^^^^^                          | DDAPR            |\n+------------------------------------------------------------------------------------+\n| selection: 45 nt, GC 31%, covers utr3_0313  [copy] [FASTA] [BLAT]                    |\n| left gutter = 60-nt NTScore sparkline per line   right gutter = motif chips          |\n+------------------------------------------------------------------------------------+\n| pinned inspector (collapsible)  utr3_0313 | AU-rich | TIAL1 DDX55 NKRF SUB1 | M1     |\n+------------------------------------------------------------------------------------+",
+   "pros": "Honours the literal requirement most directly \u2014 the sequence IS the page, selectable, copyable, findable with ctrl-F, and printable. The per-line score sparkline keeps the model's evidence adjacent to the residues without a separate scrolling track. Scales gracefully to any length because it is just a document. The codon row makes the protein\u2194nucleotide correspondence physical at reading scale. Best possible fit for the wet-lab workflow: read, select, copy, order a primer.",
+   "cons": "No transcript-scale gestalt at all \u2014 a reader cannot see where they are in a 7,601-nt 3'UTR without scrolling, and the coupling story is nearly invisible because coupled motifs are usually hundreds of lines apart. Annotation lanes have nowhere to live except the right gutter, which caps them at a few chips. Long regions become very long documents (a 7,601-nt 3'UTR is 127 lines). Needs lazy line mounting to stay responsive.",
+   "best_for": "The bench scientist who came to answer 'does my gene have anything, and what is the actual sequence?' \u2014 the largest audience by headcount, and the one the other layouts serve worst."
+  },
+  {
+   "name": "D \u2014 Region-tabbed with sticky inspector (conventional, lowest risk)",
+   "wireframe": "+------------------------------------------------------------------------------------+\n| ACTB NM_001101   3 utr5 / 13 utr3 / 4 protein motifs      [M6][M1]   [link][export] |\n+------------------------------------------------------------------------------------+\n| ( 5'UTR 3 )  ( 3'UTR 13 )  ( protein 4 )        <- region tabs with counts          |\n+---------------------------------------------------+--------------------------------+\n| 3'UTR  600 nt   SeqScore -1.1648   26.1% covered  | INSPECTOR                      |\n| minimap [## ###  # ##### ## #  ###  ##    #]      | (empty until a motif is picked)|\n|                                                   |                                |\n| NTScore  ~\\/\\__/\\/\\_/\\__/\\_/\\/\\__/\\_/\\/\\__        | utr3_0313   nt 82-126  45 nt   |\n| ruler   |0    100   200   300   400   500   600   | UAUUUGUUUU...                  |\n| motifs  [=][==]  [====]   [=] [==] [=][===] [=]   | cluster utr3_0313   M1         |\n| RBP e      [TIAL1][DDX55][NKRF][SUB1]             | score -0.94  entropy 1.21      |\n| RBP P      [ELAVL1][ATXN2]                        | [mini logo]  cov 0.51 !        |\n| miR     (none)                                    |--------------------------------|\n| genome  chr7:5,566,779-5,570,232 (-)              | RBP  3 of 4 methods [e][P][i]  |\n|                                                   | TIAL1  eCLIP  9 peaks  K562    |\n| 1   UUAUUUGUUUUUGUAGGUUUUAUUUCUCUUUUUGUAUUUAAUUC  | DDX55  eCLIP  4 peaks          |\n|     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  |--------------------------------|\n| 61  UUUUUGCUAAUUUAUAAAGACAUUUAAUUUUAUUAUUAAUUUUU  | COUPLED HERE                   |\n|                                                   | prot_0040 x utr5_0004  1.769   |\n| coupling summary: 3 gated pairs in this transcript| [open cluster] [open pair]     |\n+---------------------------------------------------+--------------------------------+\n| ALL MOTIFS (20)  region|start|end|len|seq|cluster|module|score|plddt|ann  [CSV]     |\n+------------------------------------------------------------------------------------+",
+   "pros": "Lowest implementation risk and the least new vocabulary for a reader \u2014 three regions, three tabs, one inspector. Each region gets full width, so a dense 3'UTR is as legible as it can be. The inspector never moves, so clicking a motif does not shift the sequence. Region-specific tracks appear only where they apply (no pLDDT lane on UTR tabs, no CLIP lane on the protein tab), so there are no permanently empty panels. Degrades to a single column on a narrow laptop cleanly.",
+   "cons": "Tabs actively hide the coupling: a protein motif and its paired UTR motif are never on screen together, so the paper's central finding is reduced to a text summary and a link. Loses the transcript-scale gestalt \u2014 no sense of proportion between an 84-nt 5'UTR and a 600-nt 3'UTR. Encourages the reader to treat the three regions as three separate datasets, which is precisely the framing the manuscript argues against.",
+   "best_for": "The reader who arrived with a specific motif or a specific region in mind \u2014 'show me the 3'UTR of my gene' \u2014 and the safest fallback if the projection arithmetic or the arc layer has to be cut from v1."
+  },
+  {
+   "name": "E \u2014 Compact progressive single column (laptop and small-screen default)",
+   "wireframe": "+--------------------------------------------------+\n| ACTB  NM_001101   20 motifs  [M6][M1]   [...]    |\n| 84 | 1,128 | 600 nt          filters [v]         |\n+--------------------------------------------------+\n| |=5'=|========= CDS =========|===== 3'UTR =====|  |\n| |# # #|   # ###  ##    #     |# ## # ### # ## #|  |\n|  \\____/        \\_____________/   3 coupled pairs  |\n|  tap a region to expand                          |\n+--------------------------------------------------+\n| v 5' UTR   84 nt   3 motifs   SeqScore -0.87     |\n|   NTScore ~^~-_/\\~-__/^\\~_~-~^~-__/~\\_           |\n|   motifs  [==]     [=]        [====]             |\n|   1  ACAGGCCUGA CGAGACCGCGU CCUGCCUCCG CCUUUG    |\n|                 ^^^^^^^^^^^                      |\n|   41 CCGAUCCUCC GCCCGCCCGC CGCCAGCUCA CC         |\n|                        ^^^^^^^^^^^^^^^^^         |\n+--------------------------------------------------+\n| > CDS / protein   375 aa   4 motifs   (collapsed) |\n+--------------------------------------------------+\n| > 3' UTR   600 nt   13 motifs        (collapsed) |\n+--------------------------------------------------+\n| > coupled pairs (3)                   (collapsed) |\n+--------------------------------------------------+\n| motif detail opens as a bottom sheet, not a rail  |\n+--------------------------------------------------+",
+   "pros": "Works at 1280px and below without horizontal scrolling, which matters because the stated reader is a scientist on a laptop. Progressive disclosure means the median transcript (43 motifs) is never dumped on screen at once. The proportional schematic stays pinned at the top so orientation survives collapsing. Bottom-sheet detail avoids the width tax of a sticky rail. Naturally becomes the responsive fallback for every other layout, so it is not wasted work.",
+   "cons": "Collapsed sections hide the comparison the paper is about \u2014 coupling becomes a section you open rather than a thing you see. Vertical scrolling replaces spatial reasoning, so cross-region questions require memory. Track stacks are squeezed, so the score track loses vertical resolution and subtle NTScore structure is lost. The annotation lanes have to be demoted to chips.",
+   "best_for": "The default on any screen under ~1400px, and for readers following a link from a phone or a talk. Should be built as the responsive form of A rather than as a separate design."
+  }
+ ],
+ "open_questions": [
+  "BLOCKING, needs the author: the manuscript says 'MLXIPL ... contains the M2 utr3_0027 motifs (Fig. 4a)', but modules.json assigns utr3_0027 to M1 while the code that produced Fig 4a (build_mlxipl_signatures.py, MLXIPL_M2_signatures.csv) uses utr3_0227, which is M2. MLXIPL is a featured example gene, so its R1 page will contradict either the paper or the data. All evidence points to a one-character typo; confirm before building the M2 example.",
+  "Should the unified mRNA axis with projected protein motifs be the default view, or an opt-in mode? I verified the projection is exact (cds == 3*protein+3 in 19,210/19,210; ACTB codons check out), but projecting an amino-acid motif onto nucleotide coordinates is an interpretive act \u2014 it asserts that the protein motif 'is' a stretch of mRNA. The paper's framing supports it; the author should confirm the framing is welcome rather than surprising.",
+  "How many coupling arcs should be drawn by default? I measured mean 8.04 co-present gated cluster pairs per transcript, median 2, p90 23, max 203 (MRTFB, NCOA1). Top-8 by phylo_corrected_score is my proposal, but the cutoff is an editorial judgement about how much of the transcript's coupling to assert on first paint.",
+  "Arcs at cluster level or instance level? I counted cluster pairs. Since a cluster can have several instances on one transcript (ACTB has 4 prot_0040 and 3 utr5_0004 instances), instance-level arcs would multiply. Anchoring one arc per cluster pair at the best-scoring instance is my recommendation, but it under-draws the real co-occurrence and should be labelled as a summary.",
+  "The 'no motifs' empty state needs a correct sentence. The surveys' '7,784 nt model context cap' derives from the transcript_length column, which I verified is NOT the mRNA length (ACTB 1,059 vs true 1,812; shorter than utr5+cds+utr3 in all 19,210 rows). What IS transcript_length? Until that is known, the empty state should say 'no motifs were called for this transcript' plus the length comparison (motif-bearing max 11,426 nt vs TTN 109,224 nt) and not assert a hard cap.",
+  "Is there a newer or canonical location for the 5'UTR NTScore file? It currently sits at explore_biology/01.protein_localization/analysis/data/h5cache/outputs_utr5_score_0326.h5 \u2014 inside an unrelated analysis folder, referenced by no documented pipeline. It has exactly 18,093 keys (a perfect 1:1 with the motif universe), so it is clearly the right file, but its location makes it fragile. The 3'UTR file has 492 extra keys, some length-mismatched, which the build must exclude.",
+  "Should the CDS carry any quantitative track at all? There is no per-nucleotide score for CDS or protein anywhere. I propose an explicit hatched 'no score computed' band. If a CDS-level score exists elsewhere or could be generated, it would remove the most visible asymmetry in the view.",
+  "Can delta-attention be recomputed for a small set of featured transcripts? Nothing is stored (PANELS.md says Fig 3a is drawn from synthetic data). For the reviewer audience, showing the actual attribution behind a highlight in even 10-20 transcripts would be the highest-value addition to R1 \u2014 but it needs GPU inference from the MIRTO checkpoint, not file reads.",
+  "Should R1 include a UniProt feature track and a per-residue MobiDB disorder track? Both need new precompute (a corrected UniProt overlap join, ~756k hits, ~2 min; and parsing MobiDB's comma-joined 'start..end' range strings, which I verified are present in the raw TSV). They materially improve the protein half but neither exists today in usable form.",
+  "Who curates the ~15-row RBP alias map (U2AF65/U2AF2, TDP43/TARDBP, UNR/CSDE1, IMP3/IGF2BP3, HNRNPH/HNRNPH1, plus opaque 'ACI' and 'SDOS')? Without it every RBP chip and filter in R1 double-counts. It is an afternoon of work but requires someone who knows the nomenclature to sign off.",
+  "Is a per-nucleotide score export acceptable to release? The h5 files total 288 MB and represent the model's raw output. Exporting arrays per transcript is trivially easy and scientifically valuable, but it is effectively publishing the model's predictions in bulk \u2014 a scope decision, not a technical one.",
+  "Should the isoform case study (CD47/CD44/BIRC3 long vs short 3'UTR) be reachable from those genes' R1 pages? The data exists and is isoform-resolved, but the main corpus is one transcript per gene, so a contextual banner on exactly three gene pages is slightly inconsistent. Consistent scoping versus surfacing real data the reader would want.",
+  "Confirm the module colour mapping. Three conflicting mappings exist in the tree; I recommend the MCOL used by four published figure scripts (M1 #0072B2, M2 #CC79A7, M3 #E69F00, M4 #D55E00, M5 #4D4D4D, M6 #009E73). If any published figure image is embedded alongside the live view, one of them will need recolouring."
+ ]
+}

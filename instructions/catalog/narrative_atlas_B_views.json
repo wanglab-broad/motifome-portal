@@ -1,0 +1,957 @@
+{
+  "_note": "Views for the SCIENTIFIC NARRATIVE ATLAS design. Wireframes are given as arrays of fixed-width lines. Component ids in brackets [VU-xxx] refer to viz units in narrative_atlas_C1..C4_vizunits.json. All measured numbers are from the survey findings.",
+
+  "views": [
+    {
+      "id": "V21",
+      "title": "App frame (global chrome)",
+      "purpose": "Every other view renders inside this. It carries the three things that must never be more than one keystroke or one glance away: search, the co-occurrence caveat, and the snapshot/citation identity. Described first because every later wireframe assumes it.",
+      "layout": {
+        "overview": "Fixed 52px top bar; optional 28px caveat strip that appears only on network/module/cluster routes; content column max-width 1440px with a 240px right rail on wide screens; 24px status footer.",
+        "wireframe": [
+          "+----------------------------------------------------------------------------------------------+",
+          "| MIRTO ATLAS   Home  Modules  Network  Browse  Tours  Verify  Evidence   [ search... ⌘K ] ◐ ⤓ |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| ⓘ Module membership is statistical co-occurrence of motif clusters across genes - not          |",
+          "|   demonstrated physical interaction.  2,620 of 166,615 co-occurring pairs (1.6%) pass.  [why?] |",
+          "+----------------------------------------------------------------------------------------------+",
+          "|                                                                       |                      |",
+          "|   <<< route content >>>                                               |  right rail          |",
+          "|                                                                       |  (context, provenance|",
+          "|                                                                       |   'in the paper',    |",
+          "|                                                                       |   related tours)     |",
+          "|                                                                       |                      |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| Data snapshot v1.0.0 · built 2026-09-01 · DOI 10.5281/zenodo.xxxxxxx · human (GRCh37)  [cite] |",
+          "+----------------------------------------------------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "The caveat strip is NOT dismissible and NOT a tooltip. It renders on #/network, #/pair, #/module, #/cluster and inside any tour step that touches those routes. It is absent on #/gene and #/about (where it would be noise).",
+          "Omnibox is the only search entry point in the whole app; there is no second search box on the landing page. Cmd-K / Ctrl-K focuses it from anywhere.",
+          "Right rail collapses below 1180px and its contents move to the bottom of the content column."
+        ]
+      },
+      "components": ["[VU-C4-01] omnibox typeahead", "[VU-C4-02] persistent caveat strip", "[VU-C4-03] theme toggle (light/dark/system)", "[VU-C4-04] export basket button with count badge", "[VU-C4-05] snapshot version chip", "[VU-C4-06] citation popover", "[VU-C4-07] breadcrumb + resolution selector", "[VU-C4-08] keyboard shortcut sheet", "[VU-C4-09] 'in the paper' panel-provenance chip", "[VU-C4-10] related-tours rail card"],
+      "interactions": [
+        "⌘K focuses omnibox; typing filters 17,847 symbols + 18,093 RefSeq + 20,481 ENSG + 20,481 ENST entirely client-side from the 157 KB gz index (no network round-trip)",
+        "Pasting an ENSG or ENST resolves to exactly one RefSeq (measured: every ENSG maps to exactly 1) so no disambiguation UI is shown; only the 215 genes with >1 transcript get a picker",
+        "Typing a motif string in RNA alphabet (UCUCC) is normalised to T before matching, so the manuscript's own motif names work",
+        "'why?' in the caveat strip deep-links to #/evidence/paralogy",
+        "Any table row anywhere can be added to the export basket; the basket badge counts items and the tray exports CSV/JSON client-side from data already in memory"
+      ],
+      "entry_points": "always mounted"
+    },
+
+    {
+      "id": "V01",
+      "title": "Atlas Home - 'A shared vocabulary between proteins and their 3' UTRs'",
+      "purpose": "Answer 'what did you find?' in 30 seconds and 'is it real?' in five minutes, without a search box being the first thing the reader sees. This is the front door of the narrative angle.",
+      "layout": {
+        "overview": "Four stacked bands: (1) hero with the bilingual schematic and three counters; (2) the six module story cards, 3x2; (3) the evidence funnel; (4) three entry ramps (tours / verify a figure / search your gene).",
+        "wireframe": [
+          "+==============================================================================================+",
+          "|  THE BILINGUAL MOTIFOME                                                                      |",
+          "|  A protein-conditioned language model of full-length mRNA learns motifs on BOTH sides of      |",
+          "|  the same transcript - and the two vocabularies co-occur in six recurring programs.           |",
+          "|                                                                                              |",
+          "|     protein  N ──■──────■──────────■─── C          [VU-C4-11] animated bilingual schematic   |",
+          "|                   ╲      ╲          ╲               (delta-attention hotspots, illustrative) |",
+          "|      mRNA  5'──▣───▣──[CDS]──▣───▣───▣──── 3'                                                |",
+          "|                                                                                              |",
+          "|     889,215 motif instances   ·   900 clusters   ·   18,093 human transcripts                |",
+          "|     [ Take the 5-minute tour → ]   [ Verify a figure → ]   [ Search your gene → ]            |",
+          "+==============================================================================================+",
+          "|  THE SIX MODULES                                        sort: ⦿ as published  ○ by size      |",
+          "|  +--------------------+ +--------------------+ +--------------------+                       |",
+          "|  | ▮ M1  TF           | | ▮ M2  TF           | | ▮ M3  Secretory    |                       |",
+          "|  | AU-rich ARE + IDR  | | GC-rich 3'UTR,     | | Leu-rich signal    |                       |",
+          "|  |                    | | nuclear retention  | | peptide x GC 5'UTR |                       |",
+          "|  | 39p×67u  774 edges | | 39p×73u  409 edges | | 62p×71u  385 edges |                       |",
+          "|  | 3,388 genes        | | 3,046 genes        | | 4,348 genes        |                       |",
+          "|  | ▁▂▅█▃▁ ZNF 0.062   | | ▁▃▆█▂▁ ZNF 0.042   | | ▁▂▄█▅▂ ZNF 0.003   |                       |",
+          "|  | ▸ GATA3 BCL11B KLF5| | ▸ MNT ZNF692 MLXIPL| | ▸ RET VEGFB TIMP3  |                       |",
+          "|  +--------------------+ +--------------------+ +--------------------+                       |",
+          "|  +--------------------+ +--------------------+ +--------------------+                       |",
+          "|  | ▮ M4  Immune       | | ▮ M5  RNA process. | | ▮ M6  Translation  |                       |",
+          "|  | AGCAGA/UCAUC ·     | | cap-proximal       | | Kozak GCCACC ·     |                       |",
+          "|  | UCUCC              | | utr5_0079, NCBP2   | | histone stem-loop  |                       |",
+          "|  | 20p×53u  123 edges | | 24p×33u  126 edges | | 14p×18u   43 edges |                       |",
+          "|  | 1,988 genes        | | 1,607 genes        | | 1,562 genes        |                       |",
+          "|  | ▁▁▃█▄▁ ZNF 0.027   | | ▁▂▅█▃▁ ZNF 0.014   | | ▁▁▂█▆▂ ZNF 0.002   |                       |",
+          "|  | ▸ DEFA5 CR1 IFI16  | | ▸ CWC22 CPSF7 TRA2B| | ▸ ACTB EEF2 EIF1   |                       |",
+          "|  +--------------------+ +--------------------+ +--------------------+                       |",
+          "+==============================================================================================+",
+          "|  HOW 180,000 CANDIDATE PAIRS BECAME 2,620                     [VU-C4-13] evidence funnel     |",
+          "|  300 protein clusters × 600 UTR clusters ......................... 180,000 ██████████████    |",
+          "|  co-occur in at least one gene ................................... 166,615 █████████████     |",
+          "|  npmi_mip_APC > 0.10 ..............................................   7,210 ▌                |",
+          "|  + n_indep_clades ≥ 8, clade_concentration < 0.35, co_count ≥ 10 ..   2,620 ▏  (1.6%)        |",
+          "|  → Louvain, modularity 0.47, 9 communities → 6 modules ...........     513 clusters          |",
+          "|  [ Why so strict? 25 of the top 30 raw-NPMI hits are ZNF clade artifacts → ]                 |",
+          "+==============================================================================================+",
+          "|  START HERE                                                                                  |",
+          "|  ┌ Guided tours ─────────┐ ┌ Verify a figure ──────┐ ┌ Look up a gene ───────┐               |",
+          "|  │ 7 tours · 3-6 min ea. │ │ 9 panels · live data  │ │ 17,847 symbols        │               |",
+          "|  │ ▸ The Kozak rediscovery│ │ ▸ Fig 3e bipartite   │ │ [ ACTB          ]     │               |",
+          "|  │ ▸ Histones find SLBP  │ │ ▸ Fig 4b M1/M2 RBPs  │ │ try: ACTB SOX2 TRA2B  │               |",
+          "|  │ ▸ The ZNF trap        │ │ ▸ Fig 4c M5 kinetics │ │      MLXIPL RET GATA3 │               |",
+          "|  └───────────────────────┘ └───────────────────────┘ └───────────────────────┘               |",
+          "+==============================================================================================+"
+        ],
+        "spatial_rules": [
+          "Cards are 3x2 on >=1100px, 2x3 on >=720px, 1x6 below. Card order is the published M1..M6, never re-sorted by default.",
+          "The funnel bar widths are log-scaled (linear would make 2,620 invisible against 180,000) with the linear number printed - and the log scaling is stated in the caption, because a hidden log axis is exactly the kind of thing this audience checks.",
+          "Nothing on this page requires a fetch beyond the boot bundle: modules.json (1.7 KB gz) + clusters_index (90 KB) + examples_table (4 KB) + the six ZNF sparkline arrays."
+        ]
+      },
+      "components": ["[VU-C4-11] bilingual hero schematic", "[VU-C4-12] landing stat counters", "[VU-C3-25] module story card", "[VU-C3-26] module ZNF/clade sparkline", "[VU-C4-13] evidence funnel", "[VU-C4-14] featured example chips", "[VU-C4-15] tour catalogue card", "[VU-C4-16] verify-panel card", "[VU-C4-01] omnibox (inline instance)"],
+      "interactions": [
+        "Hover a module card: its two most-cited clusters and its top_pairs[5] from modules.json surface in the card footer",
+        "Click a module card -> #/module/M<n>",
+        "Click a gene chip in a card footer -> #/gene/<SYMBOL> with ?from=M<n> so the gene page can pre-highlight that module's motifs",
+        "Click any funnel row -> #/network with the corresponding edge filter applied (e.g. the 7,210 row opens the network in relaxed mode)",
+        "Click 'Why so strict?' -> #/evidence/paralogy"
+      ],
+      "entry_points": "#/ ; site root; every logo click"
+    },
+
+    {
+      "id": "V02",
+      "title": "Guided tours - catalogue and runner",
+      "purpose": "The signature feature of this angle: a reader with five minutes reproduces a specific manuscript claim by moving real controls in the real views, not by reading a slideshow.",
+      "layout": {
+        "overview": "The runner is a 340px docked panel on the left (or a bottom sheet on narrow screens). The right 100%-minus-340px is the ACTUAL view for that step - the same #/cluster or #/gene or #/network the free-browsing user gets, with a focus/highlight parameter applied.",
+        "wireframe": [
+          "+--------------------+-------------------------------------------------------------------------+",
+          "| TOUR  ● ● ● ○ ○    |                                                                         |",
+          "| The Kozak          |   <<< the real #/cluster/utr5_0004 view, with the logo panel scrolled    |",
+          "| rediscovery        |       into position and one consensus row pulsing >>>                    |",
+          "| step 3 of 5        |                                                                         |",
+          "|                    |                                                                         |",
+          "| ─────────────────  |   +----------------------------------------------------------------+    |",
+          "| MIRTO never saw    |   | utr5_0004    ▮M6  5'UTR  1,043 instances / 372 genes            |    |",
+          "| the Kozak          |   |                                                                |    |",
+          "| consensus. STREME  |   |    2 ┤     ▁  ▁                                                |    |",
+          "| run on this        |   |  bits┤   ▁ █▁ █▁ ▁                    C G C C G C C A C C     |    |",
+          "| cluster's members  |   |    0 ┴───█─██─██─█────                cov 0.212 · 51 carriers   |    |",
+          "| returns            |   |         STREME (published)   ⓘ                                 |    |",
+          "| CGCCGCCACC.        |   +----------------------------------------------------------------+    |",
+          "|                    |                                                                         |",
+          "| ⌕ check it         |   +-- positional histogram ----------------------------------------+    |",
+          "| yourself:          |   |  5' ▁▁▁▂▂▃▃▄▅▆▇███  3'   median_pos 0.84 - hard against the ATG |    |",
+          "| [ show the 372     |   +----------------------------------------------------------------+    |",
+          "|   carrier genes    |                                                                         |",
+          "|   with their       |                                                                         |",
+          "|   Kozak strength ] |                                                                         |",
+          "| ─────────────────  |                                                                         |",
+          "| ‹ back    next ›   |                                                                         |",
+          "| [ leave tour ]     |                                                                         |",
+          "+--------------------+-------------------------------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "The panel never covers the element it is talking about; the runner scrolls the target into the visible right region and applies a 2s pulse outline, then stops.",
+          "Every step's 'check it yourself' button performs a REAL interaction (opens a table, toggles a filter, changes a sort) rather than advancing the narration. The reader can then wander off; leaving the tour keeps the current route.",
+          "The step URL is #/tour/kozak?s=3 and is shareable; deep-linking into step 3 loads the underlying route first, then the overlay."
+        ]
+      },
+      "components": ["[VU-C4-17] tour progress rail", "[VU-C4-18] tour step card", "[VU-C4-19] 'check it yourself' action button", "[VU-C4-20] focus pulse/spotlight", "[VU-C4-21] tour completion card with 'what you just verified' summary", "[VU-C4-15] tour catalogue card"],
+      "interactions": [
+        "Next/back; Esc leaves the tour but preserves the route and any filters the tour applied",
+        "Each step declares {route, focus_selector, highlight, prose, assertion, action}; the runner is ~150 lines and knows nothing about any specific view",
+        "The completion card lists every assertion the reader just saw with its measured value and a link to the source file, and offers 'add all to export basket'"
+      ],
+      "entry_points": "#/tours ; #/tour/<id>?s=<n> ; the three tour chips on V01 ; a 'related tour' card in the V21 right rail on any view a tour visits",
+      "tour_catalogue": [
+        {"id": "kozak", "title": "The Kozak rediscovery", "minutes": 5, "spine": "M6 story card -> the prot_0040 x utr5_0004 edge (the highest-scoring pair in the whole analysis, phylo_corrected_score 1.7694, co_count 175, 23 independent clades, ZNF fraction 0.0) -> the utr5_0004 logo CGCCGCCACC -> the 372 carrier genes pre-classified by Kozak strength -> ACTB's real 5'UTR with all three of its motifs in utr5_0004", "claim_verified": "An unsupervised method rediscovers the Kozak consensus and pairs it with histone-fold proteins."},
+        {"id": "histone", "title": "Histones find their stem-loop", "minutes": 4, "spine": "utr3_0463 -> eCLIP SLBP fold 48.62 (k=22/n=196) and miR-760 fold 16.99 -> the bitwise-AND carrier list with prot_0040: 17 genes, every one a histone (H3-5, H3-3A, H2AC13, H2AC15, H2AC16, H2AC6, H2AC4, H2AC17, H2AC18, H2BC13, H2BC6, H2BC21, H2BC11, H2AC7, H2AC14, H2AC12, H2BC1)", "claim_verified": "M6's second UTR cluster independently recovers the histone stem-loop programme."},
+        {"id": "znf", "title": "The ZNF trap - why the top hits are wrong", "minutes": 6, "spine": "Sort the raw-NPMI leaderboard (the ONE place npmi_raw is sortable) -> prot_0228 x utr5_0020 at npmi_raw 0.897 with frac_co_ZNF 0.990 and 2 clades -> the verdict column (25/30 'ZNF clade artifact') -> the Meff gauge (18,068 genes -> 2,342 effective; 547 ZNF genes -> 9.0 effective) -> the four-condition gate that removes them", "claim_verified": "The filtering is doing real work, and p-value corrections alone do not remove the artifact."},
+        {"id": "m5", "title": "A nuclear-degradation programme", "minutes": 5, "spine": "M5 story -> the utr5_0079 x prot_0072 edge (npmi_mip_APC 0.251, RNA-binding domain superfamily 11.1x, curated phase separation 9.26x) -> the 2x2 kinetics panel (PUND 1.9 / 2.7 ns / 8.0 / 15.6%; polysome t1/2 9.9 / 6.5 / 5.0 / 3.4 min; and the FOUR metrics that are not significant) -> TRA2B, the strongest nuclear decay at t1/2 24 min", "claim_verified": "Carrying both motifs is associated with nuclear degradation and faster polysome loading - and four of seven measured metrics show nothing."},
+        {"id": "m3", "title": "Signal peptides meet GC-rich 5'UTRs", "minutes": 4, "spine": "M3 -> prot_0122 (LLLLLL, coverage 0.698, 415 carriers) x utr5_0090 (GCCGCCGCCGC, coverage 0.361, 100 carriers) -> the 13 co-carrier genes (TIMP3 SDC1 MEGF6 ITGA9 VEGFB GPR37 FSTL4 DKK3 CACNA2D3 RET NTN4 COL22A1 SCARF2) -> ED Fig 3k/l: max pairwise protein identity ~19%, max 5'UTR identity ~55% -> RIBOmap ER fraction", "claim_verified": "The module is not sequence homology in disguise."},
+        {"id": "m1m2", "title": "Two TF programmes, one nucleus", "minutes": 6, "spine": "M1 vs M2 -> utr_composition.csv GC 0.344 (n=56 M1 utr3 clusters) vs 0.497 (n=66 M2) -> the 185-RBP volcano (PABPN1 20.26% M2 vs 5.21% M1, q=1.07e-134) -> the APEX table INCLUDING lamina q=0.725 and OMM q=0.551, which do not support the manuscript sentence -> MLXIPL's 7 M2 3'UTR sites", "claim_verified": "M2 is nuclear-retention-flavoured; two of the five stated localisation claims are not significant in the table on disk.", "blocked_by": "R-01 (utr3_0027 vs utr3_0227) - do not ship until the author confirms"},
+        {"id": "r1", "title": "Read one transcript in both languages", "minutes": 3, "spine": "ACTB -> the three tracks -> the 45-nt AU-rich 3'UTR element at [82,126] in utr3_0313 with TIAL1 -> the protein [23,27] DDAPR in prot_0040 -> the module fingerprint bar", "claim_verified": "The gene view is coordinate-correct and the annotations are real (a canonical ARE-binding protein on an ARE)."}
+      ]
+    },
+
+    {
+      "id": "V03",
+      "title": "Module story page (one template, six instances M1-M6)",
+      "purpose": "The narrative unit of the site. Answers 'what does this module mean, what is the evidence, and what should I look at' in one scroll.",
+      "layout": {
+        "overview": "Five bands: header + claim; the module's own bipartite subgraph; what the clusters are (protein side / UTR side, two columns); functional evidence (GO + external validation); genes and exemplars. A sticky section nav sits in the right rail.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| ▮ M5   RNA processing                                            Fig 3d, 3e, 4c-4e  [in paper]|",
+          "| 24 protein clusters × 33 UTR clusters (28 utr3 + 5 utr5) · 126 intra-module co-occurrences   |",
+          "| mean score 0.3196 · mean independent clades 12.2 · ZNF fraction 0.014 · 1,607 carrier genes  |",
+          "|                                                                                              |",
+          "| THE CLAIM  Cap-proximal 5'UTR motifs (utr5_0079) co-occur with RGG/RRM protein motifs        |",
+          "| (prot_0072) in splicing and RNA-processing factors; these transcripts are enriched for       |",
+          "| predicted nuclear degradation and load onto polysomes faster.       [ take the M5 tour → ]   |",
+          "+==============================================================================================+",
+          "| THE SUBGRAPH                                    ⦿ strict (126)  ○ + cross-module (+192 M1)   |",
+          "|   protein clusters                UTR clusters                                               |",
+          "|   ○ prot_0072  RRM/phase-sep ═════════ ▣ utr5_0079  UAUGG  cap-proximal                     |",
+          "|   ○ prot_0101  ─────╲          ╱──────  ▣ utr3_0106                                          |",
+          "|   ○ prot_0129  ──╲   ╲────────╱  ╱───   ▣ utr3_0311   ...  (57 nodes, 126 edges, density .159)|",
+          "|                    [ open in the full network → ]                                            |",
+          "+==============================================================================================+",
+          "| WHAT THE CLUSTERS ARE                                                                        |",
+          "| ┌ protein side (24) ──────────────────┐  ┌ UTR side (33) ───────────────────────┐            |",
+          "| │ prot_0072  RNA-binding domain super-│  │ utr5_0079  UAUGG   cov 0.44   ▁▂▃▅▇█ │            |",
+          "| │            family  11.1×  FDR 6e-20 │  │            NCBP2 eCLIP 2.64× k136/545│            |",
+          "| │            + phase separation 9.26× │  │ utr3_0106  ...  ⚠ no significant term │            |",
+          "| │ prot_0101  ...                      │  │ utr3_0311  ...  ⚠ no STREME consensus │            |",
+          "| └─────────────────────────────────────┘  └──────────────────────────────────────┘            |",
+          "+==============================================================================================+",
+          "| FUNCTIONAL EVIDENCE                             ⦿ trusted (593)  ○ all significant (1,086)   |",
+          "|   GO dotplot: fold on x, -log10 q on y, dot size = n_genes, colour = category                |",
+          "|   [ specificity view: peak_nlq vs second_nlq for the 42 discriminating terms ]                |",
+          "|                                                                                              |",
+          "|   EXTERNAL VALIDATION  (TimeLapse-seq, K562; n = 17,451 / 487 / 212 / 45)                     |",
+          "|   metric              bg     utr5_0079  prot_0072   both     significance                    |",
+          "|   PUND %              1.9      2.7 ns      8.0        15.6    OR 9, p=3e-05                   |",
+          "|   polysome t½ (min)   9.9      6.5         5.0         3.4    p=6e-10                         |",
+          "|   RNA export          43.0     -           -          43.0    ns                              |",
+          "|   whole-cell stab.    195.0    -           -         195.0    ns                              |",
+          "|   cytoplasmic stab.   84.2     -           -          84.2    ns                              |",
+          "|   nuclear retention   83.5     -           -          83.5    ns                              |",
+          "|   ⓘ four of seven metrics show no significant effect; all seven are shown.                    |",
+          "+==============================================================================================+",
+          "| GENES                                            1,607 members · 1,482 hit ≥1 sig GO term    |",
+          "| [ filter: ⌕ ] [ tier: A / carrier / literal ] [ has NTScore track ]                           |",
+          "|  TRA2B   NM_004593  t½nucdeg 24 min ★  · 1 sig terms · [open gene →]                          |",
+          "|  CWC22 · CPSF7 · CSTF3 · HNRNPD · HNRNPR · DDX17 · YTHDC1 ...                                |",
+          "+==============================================================================================+"
+        ],
+        "spatial_rules": [
+          "The claim sentence is authored copy, but every number in it is bound to a data field and rendered from data, so it cannot go stale.",
+          "The subgraph is a small self-contained SVG (max 133 nodes for M3), NOT an iframe of the big network.",
+          "'⚠ no significant term' and '⚠ no STREME consensus' are rendered as first-class row states, because 377 of 500 utr3 clusters have no significant term - hiding them would misrepresent the module.",
+          "Module-level external validation exists only for M1/M2 (APEX, RBP volcano), M3 (RIBOmap), M5 (TimeLapse-seq) and M6 (Kozak/SLBP). M4's band renders an explicit 'no external validation dataset in this project' state rather than being omitted."
+        ]
+      },
+      "components": ["[VU-C3-27] module header stat tiles", "[VU-C3-28] module claim block", "[VU-C3-06] module bipartite subgraph", "[VU-C3-29] cluster side-by-side list", "[VU-C3-30] module GO dotplot", "[VU-C3-31] GO specificity chart", "[VU-C3-32] GO theme chips", "[VU-C4-22] M5 2x2 kinetics table", "[VU-C4-23] APEX localisation dumbbell", "[VU-C4-24] RIBOmap ER fraction plot", "[VU-C4-25] M1/M2 RBP volcano", "[VU-C3-33] module gene table", "[VU-C3-34] module composition donut", "[VU-C3-35] top_pairs chips", "[VU-C2-30] cluster mini-logo", "[VU-C4-26] no-validation empty state"],
+      "interactions": [
+        "'strict / + cross-module' toggle adds the 757 cross-module edges touching this module; for M5 this adds the 192-edge M1<->M5 link the manuscript explicitly discusses",
+        "GO panel defaults to trusted (q<0.05 AND fold>=2 AND n_fam_support>=5) per the report's own instruction; the toggle shows all significant with the counts printed (M5 593 of 1,086)",
+        "Clicking a GO dot opens the driving gene list from module_term_gene_lists.csv (2.2 MB compact form, or the per-module M<n>_term_genes.csv at 111-810 KB)",
+        "Clicking any cluster name -> #/cluster/<id>; clicking any gene -> #/gene/<sym>?from=M<n>",
+        "All five validation tables are exportable and every row shows its q even when non-significant"
+      ],
+      "entry_points": "#/module/M1..M6 ; module cards on V01 ; module badges on cluster and gene pages ; meta-map supernodes ; tours"
+    },
+
+    {
+      "id": "V04",
+      "title": "Meta-module map (R3, level 1)",
+      "purpose": "The 'meta modules view' of requirement R3 at its coarsest, most legible level: six supernodes and the fifteen measured inter-module link weights, which exist nowhere on disk and are computed at bake time.",
+      "layout": {
+        "overview": "A single centred SVG about 760x560, with a legend strip beneath and a level switcher above. Six supernodes on a ring ordered by node_select.order_modules() so heavily linked modules sit adjacent (M5-M1-M2-M3-M4, M6 hanging off M1).",
+        "wireframe": [
+          "+----------------------------------------------------------------------------------------------+",
+          "| LEVEL:  ⦿ modules (6)   ○ clusters (519)   ○ one module   |  EDGES: ⦿ strict 2,620 ○ relaxed |",
+          "+----------------------------------------------------------------------------------------------+",
+          "|                                                                                              |",
+          "|                              ╭──────╮                                                        |",
+          "|                     32      │  M6  │      43 intra                                          |",
+          "|             ╭──────╮◄───────╯ Trans╰                                                         |",
+          "|             │  M1  │                                                                         |",
+          "|             │  TF  │══════════ 244 ═══════════╮                                              |",
+          "|             ╰──┬───╯                          ▼                                              |",
+          "|         192 ═══╡                        ╭──────╮                                             |",
+          "|             ╭──▼───╮                    │  M2  │─── 167 ───╮                                 |",
+          "|             │  M5  │  30                │  TF  │           ▼                                 |",
+          "|             │ RNA  │◄─── ... ───────────╰──────╯      ╭──────╮   22   ╭──────╮              |",
+          "|             ╰──────╯                                  │  M3  │────────│  M4  │              |",
+          "|                                                       │Secret│        │Immune│              |",
+          "|                                                       ╰──────╯        ╰──────╯              |",
+          "|                                                                                              |",
+          "|  node area ∝ carrier genes (M3 4,348 … M6 1,562)   ring thickness ∝ intra-module edges       |",
+          "|  ring colour = mean_frac_ZNF (M3 0.003 … M1 0.062)  edge width ∝ cross-module edge count     |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| M1-M2 244 (mean 0.292) · M1-M5 192 (0.325) · M2-M3 167 (0.266) · M1-M6 32 · M1-M3 30 ·       |",
+          "| M2-M5 28 · M3-M4 22 · M5-M6 15 · M3-M6 6 · M2-M4 5 · M2-M6 5 · M3-M5 5 · M4-M5 4 ·           |",
+          "| M1-M4 1 · M4-M6 1                                              757 cross-module edges total  |",
+          "+----------------------------------------------------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "Only 15 edges, so all fifteen are drawn and all fifteen are labelled in the legend strip - no 'top N' truncation, because the long tail (M1-M4 = 1 edge) is itself informative.",
+          "Supernode ring encodes intra-module edge count so the reader can see M1 (774) is 18x M6 (43) without a second chart.",
+          "Hovering a meta-edge dims the other fourteen and lists its top 5 constituent cluster pairs by phylo_corrected_score."
+        ]
+      },
+      "components": ["[VU-C3-01] meta-module map", "[VU-C3-02] module supernode glyph", "[VU-C3-03] meta-edge with weight label", "[VU-C3-04] network level switcher", "[VU-C3-16] strict/relaxed edge toggle", "[VU-C3-24] network legend panel", "[VU-C3-05] meta-edge hover list"],
+      "interactions": [
+        "Click supernode -> #/module/M<n>; double-click -> level 3 bipartite drill-down for that module",
+        "Click meta-edge -> level 2 filtered to the constituent edges of that module pair, e.g. M1-M5 opens the 192 edges the manuscript discusses",
+        "Level switcher morphs rather than navigates: supernodes explode into their member clusters with a 600ms transition so the reader keeps their bearings"
+      ],
+      "entry_points": "#/network (default level) ; 'Network' in top nav ; V01 funnel row 5"
+    },
+
+    {
+      "id": "V05",
+      "title": "Cluster co-occurrence network (R3, level 2)",
+      "purpose": "The full 519-node / 2,620-edge gated graph - the actual result of the paper - with click-a-node and click-an-edge detail as R3 requires.",
+      "layout": {
+        "overview": "Full-bleed SVG canvas with a 300px left control column and a 420px right detail drawer that slides in on selection. Opens on the 52-node published Fig 3e subset.",
+        "wireframe": [
+          "+-------------------+--------------------------------------------------+----------------------+",
+          "| SHOW               |                                                  | DETAIL               |",
+          "| ⦿ as published (52)|            ○ ═══ ▣                               | (V07 / V08 render    |",
+          "| ○ all module (513) |          prot_0040 ══ utr5_0004                  |  here)               |",
+          "| ○ all gated (519)  |                ╲     ╱ ╲                         |                      |",
+          "|                    |                 ╲   ╱   ▣ utr3_0463             |                      |",
+          "| EDGES              |                  ○─╱                             |                      |",
+          "| ⦿ strict (2,620)   |            prot_0135                             |                      |",
+          "| ○ + suggestive     |                                                  |                      |",
+          "|   (7,210, npmi>.1) |     ● module fill   ○ protein  ▣ UTR             |                      |",
+          "| ☑ cross-module(757)|     ═ consensus-backed  ─ ─ module-level only    |                      |",
+          "|                    |                                                  |                      |",
+          "| TOP N BY SCORE     |                                                  |                      |",
+          "| 50 ──●──────── all |                                                  |                      |",
+          "|  (50 edges → 50    |                                                  |                      |",
+          "|   nodes, min .790) |                                                  |                      |",
+          "|                    |                                                  |                      |",
+          "| MODULES            |    ┌ minimap ┐                                   |                      |",
+          "| ☑M1 ☑M2 ☑M3        |    │ ▪▪ ▪  ▪ │                                   |                      |",
+          "| ☑M4 ☑M5 ☑M6 ☑none  |    └─────────┘                                   |                      |",
+          "|                    |                                                  |                      |",
+          "| ⌕ find a cluster   |  [ freeze layout ] [ re-simulate ] [ ⤓ export ]  |                      |",
+          "+-------------------+--------------------------------------------------+----------------------+"
+        ],
+        "spatial_rules": [
+          "Layout is FROZEN from the bake-time d3-force run with per-module attractors and a protein-left / UTR-right bias, so deep links to 'this region of the graph' are stable and a reload does not reshuffle. 'Re-simulate' is offered but explicitly labelled as producing a non-canonical layout.",
+          "Node shape carries region (circle = protein, square = UTR) and label colour carries UTR sub-region (5'UTR #0072B2, 3'UTR #A85A00, protein black) exactly as 24_bipartite_pruned_ordered.py does - module is fill, so module and region are two independent channels.",
+          "Unassigned nodes (the 3 dyad endpoints and, in relaxed mode, more) are drawn with a dashed outline and no fill, never grey fill, because grey is M5.",
+          "Edge style is tiered: solid where a consensus PAIR exists (1,430 of 2,620 today, all intra-module), dashed where only cluster-level evidence exists - matching the published figure's own convention.",
+          "At the 519-node maximum the SVG holds ~519 nodes + 2,620 edges + 519 labels ≈ 3,700 elements, well within DOM budget and cheaper than losing hit-testing to canvas."
+        ]
+      },
+      "components": ["[VU-C3-07] force graph canvas", "[VU-C3-08] node glyph", "[VU-C3-09] edge glyph with tiering", "[VU-C3-10] node subset switcher", "[VU-C3-11] top-N-by-score slider", "[VU-C3-12] module filter checkboxes", "[VU-C3-13] cross-module toggle", "[VU-C3-14] network minimap", "[VU-C3-15] network find box", "[VU-C3-16] strict/relaxed toggle", "[VU-C3-17] layout mode switch", "[VU-C3-24] legend panel", "[VU-C3-23] network export control"],
+      "interactions": [
+        "Click node -> V08 quick peek in the drawer; double-click -> #/cluster/<id>",
+        "Click edge -> V07 edge detail drawer at #/pair/<p>~<u> (deep-linkable)",
+        "Hover node -> its neighbourhood is highlighted and everything else drops to 15% opacity (ported from applyNodeNeighborhoodHighlight in 03.build_annotated_plotly_graph.py)",
+        "The find box accepts a cluster id, a consensus string (T/U-normalised), or a gene symbol; a gene symbol highlights every node whose cluster that gene carries - ported from findGeneHits/applyGeneHighlight in the same script",
+        "Top-N slider re-filters edges only; it does NOT re-run Louvain, and the control says so, because module assignments must stay fixed",
+        "Measured subgraph sizes shown live next to the slider: top 50 -> 50 nodes (min score 0.7902); 100 -> 83 (0.6819); 200 -> 127 (0.5578); 500 -> 210 (0.4142); 1000 -> 301 (0.3117); all 2,620 -> 519 (0.1460)"
+      ],
+      "entry_points": "#/network?level=clusters ; meta-edge click on V04 ; 'open in the full network' from V03 ; cluster page partner table"
+    },
+
+    {
+      "id": "V06",
+      "title": "Single-module bipartite drill-down (R3, level 3)",
+      "purpose": "The published-figure view: one module, protein clusters left, UTR clusters right, with logos and positional histograms on the nodes. Max 133 nodes (M3).",
+      "layout": {
+        "overview": "Two ordered columns with edges between; each node row carries its logo strip, name and positional histogram, so this doubles as a module-scale contact sheet.",
+        "wireframe": [
+          "+----------------------------------------------------------------------------------------------+",
+          "| ▮ M6  Translation      14 protein × 18 UTR · 43 edges · density 0.171 · max degree 8          |",
+          "+----------------------------------------------------------------------------------------------+",
+          "|  PROTEIN CLUSTERS                                     UTR CLUSTERS                            |",
+          "|                                                                                              |",
+          "|  ▁█▁▂ prot_0040  Histone-fold 26.5×  ○════════════▣  utr5_0004  CGCCGCCACC  ▁▂▃▅▇█  1.769     |",
+          "|       ▁▂▃▄▄▃▂▁                          ╲                  ▁▂▃▅▇█                            |",
+          "|  ▂█▃▁ prot_0223  ...             ○───────╲──────▣  utr3_0463  UCUUUU · SLBP 48.6×             |",
+          "|                                           ╲                                                  |",
+          "|  ▁▁█▂ prot_0059  ...             ○─ ─ ─ ─ ─╲─ ─ ─▣  utr5_0046  ⚠ no consensus                 |",
+          "|                                                                                              |",
+          "|  ── solid = a consensus PAIR backs this edge      ─ ─ dashed = cluster-level evidence only    |",
+          "|  edge width ∝ phylo_corrected_score (0.146 … 1.769)                                          |",
+          "+----------------------------------------------------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "Node order within each column comes from node_select.order_modules() / module_node_ranking.csv weighted degree, not alphabetical - the same ordering logic as the published figure.",
+          "For M1 (106 nodes / 774 edges) and M3 (133/385) the column is scrollable with a synchronised edge layer; density is shown so the reader knows M1 at 0.296 is genuinely dense rather than badly drawn.",
+          "Every node's logo is the same SVG component as the cluster page uses, at 1/3 scale."
+        ]
+      },
+      "components": ["[VU-C3-06] bipartite subgraph", "[VU-C2-01] sequence logo (small)", "[VU-C2-05] positional histogram (sparkline form)", "[VU-C3-09] edge glyph with tiering", "[VU-C3-18] node-order control", "[VU-C3-19] density/degree stat strip", "[VU-C2-04] consensus string chip"],
+      "interactions": ["same node/edge selection as V05", "'as published' switch drops to the <=5-per-side subset from bipartite_nodes_all6.csv so the panel matches Fig 3e exactly", "hover a node dims non-adjacent edges"],
+      "entry_points": "#/network?level=bipartite&m=6 ; supernode double-click on V04 ; 'see this module's bipartite view' on V03"
+    },
+
+    {
+      "id": "V07",
+      "title": "Edge (co-occurrence pair) detail drawer",
+      "purpose": "R3's 'clicking an edge shows details including annotations' - and the place where the paper's central caveat is operationalised with numbers rather than prose.",
+      "layout": {
+        "overview": "420px right drawer, five stacked sections, deep-linkable as its own route.",
+        "wireframe": [
+          "+----------------------------------------------------+",
+          "| prot_0040  ×  utr5_0004                      ✕     |",
+          "| co-occurrence of motif clusters across genes        |",
+          "| ▮M6 · protein × 5'UTR                               |",
+          "+----------------------------------------------------+",
+          "| EVIDENCE AGAINST THE GATE                           |",
+          "|  npmi_mip_APC        0.628   ▏▏▏▏▏▏█  > 0.10  ✓     |",
+          "|  n_indep_clades         23   ▏▏▏▏▏▏█  ≥ 8     ✓     |",
+          "|  clade_concentration  0.09   █▏▏▏▏▏▏  < 0.35  ✓     |",
+          "|  co_count              175   ▏▏▏▏▏▏█  ≥ 10    ✓     |",
+          "|  frac_co_ZNF          0.00   █        (max 0.400)   |",
+          "|  n_indep_families       58                          |",
+          "|  phylo_corrected_score 1.7694  ← highest in the set |",
+          "|  npmi_raw   0.71  ⓘ not a ranking key here - see    |",
+          "|                      'why we corrected for paralogy'|",
+          "+----------------------------------------------------+",
+          "| CONSENSUS PAIRS            (tier 1 of 3)            |",
+          "|  prot_0040#0 ▁█▁▂  ×  utr5_0004#0 ▁▂▃▅▇█            |",
+          "|  KIFRK            ×  CGCCGCCACC                     |",
+          "|  co 128 · npmi .59 · 19 clades · cov .31/.21        |",
+          "|  [ 2 more consensus pairs ]                         |",
+          "+----------------------------------------------------+",
+          "| ANNOTATIONS ON EACH END                             |",
+          "|  prot_0040  Histone-fold (InterPro) 26.5× FDR 3e-41 |",
+          "|             + Histone H2A/H2B/H3 …                  |",
+          "|  utr5_0004  YTHDF1 (iCLIP-P) 5.40×                  |",
+          "|             PABPC4 (eCLIP) 6.33×                    |",
+          "|  ⓘ an RBP label means: genes carrying this motif    |",
+          "|    also tend to carry this RBP's peak in the same   |",
+          "|    UTR. fold is an upper bound for CLIP sources.    |",
+          "+----------------------------------------------------+",
+          "| CARRIER GENES              175 co-occurring genes   |",
+          "|  cluster level 175 · consensus level 46             |",
+          "|  ⦿ tier A (32)  ○ carrier  ○ literal                |",
+          "|  H2AC13 H2AC15 H2BC11 HMGN2 ACTB …   [ ⤓ export ]   |",
+          "+----------------------------------------------------+",
+          "| ⚠ This is co-occurrence across genes, not a         |",
+          "|   demonstrated physical interaction.                |",
+          "+----------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "The gate section is FIRST, above the consensus and the annotations. That ordering is the design's answer to risk R-07: the reader sees the evidence quality before they see the story.",
+          "Each gate row is a tiny bullet chart: the value as a bar, the threshold as a reference tick, a check or cross. All four thresholds are printed.",
+          "npmi_raw is shown but visually demoted (smaller, muted) with a link to the paralogy page - never as a sort key.",
+          "The consensus section degrades in three explicit tiers: (1) a consensus PAIR from consensus_pair_scores.csv.gz, available for 1,430 of 2,620 edges today (0 cross-module); (2) both endpoints' consensus lists from consensus_meta.csv (451 of 513 module clusters); (3) the most frequent literal member strings from the master table with instance counts. The tier is labelled. There is no empty state."
+        ]
+      },
+      "components": ["[VU-C3-20] gate bullet chart (x4)", "[VU-C3-21] ZNF fraction badge", "[VU-C2-01] sequence logo (mini)", "[VU-C3-22] consensus pair row", "[VU-C2-04] consensus chip", "[VU-C2-15] enrichment chip with fold/FDR", "[VU-C3-36] carrier gene list with tier toggle", "[VU-C4-27] resolution selector", "[VU-C4-02] inline caveat", "[VU-C4-04] add-to-basket", "[VU-C2-16] RBP semantics tooltip"],
+      "interactions": [
+        "Carrier genes come from a bitwise AND of one Pc column and one Uc column of consensus_presence.npz, precomputed at bake time for every displayed edge - clicking any gene jumps to #/gene/<sym>?highlight=prot_0040,utr5_0004 so the gene page opens with exactly those two motifs pulsing. This is the R3 -> R1 handoff.",
+        "The resolution selector switches the carrier count between cluster level and consensus level and prints both, because the same question answers 175 or 46 depending on level",
+        "Tier A / carrier / literal follows the m4_motif_examples definition (tier A = the called instance IS the literal motif at that position); the definition is in the tooltip"
+      ],
+      "entry_points": "#/pair/<protein>~<utr> ; edge click on V05/V06 ; partner table rows on V09 ; tours"
+    },
+
+    {
+      "id": "V08",
+      "title": "Node quick-peek (cluster popover)",
+      "purpose": "Enough to decide whether to open the full cluster page, in the same drawer slot, without a navigation.",
+      "layout": {
+        "overview": "Compact card, ~360px, six rows.",
+        "wireframe": [
+          "+--------------------------------------------------+",
+          "| utr5_0079      ▮M5  5'UTR                    ✕   |",
+          "| 'NCBP2-enriched cap-proximal 5'UTR'  (enriched)  |",
+          "+--------------------------------------------------+",
+          "|   2┤   ▁▁                                        |",
+          "| bits│  ▁██▁▁          U A U G G                  |",
+          "|   0┴──███──── STREME (published) cov .44         |",
+          "+--------------------------------------------------+",
+          "| 5' ██▇▅▃▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁ 3'   median_pos 0.12     |",
+          "+--------------------------------------------------+",
+          "| 1,192 instances · 640 genes · len p50 6          |",
+          "| NCBP2 eCLIP 2.64× k=136/n=545 FDR 8.3e-25        |",
+          "+--------------------------------------------------+",
+          "| 8 partner clusters (strict) · top prot_0072 .251 |",
+          "| [ open cluster page → ]  [ centre in network ]    |",
+          "+--------------------------------------------------+"
+        ]
+      },
+      "components": ["[VU-C2-01] sequence logo", "[VU-C2-02] logo provenance badge", "[VU-C2-05] positional histogram", "[VU-C2-13] cluster stat tiles", "[VU-C2-15] top enrichment chip", "[VU-C2-31] cluster name with tier badge"],
+      "interactions": ["'centre in network' pans and zooms V05 to that node", "hover the logo to see nsites/E-value/coverage", "the name tier badge (curated / enriched / synthesised) is hoverable and explains which of the three naming tiers produced this label"],
+      "entry_points": "node click on V05/V06 ; hover-with-delay on a cluster chip anywhere"
+    },
+
+    {
+      "id": "V09",
+      "title": "Motif cluster page (R2)",
+      "purpose": "Requirement R2 in full: for a motif, show its cluster, how it associates with protein features, and the annotations on it. Two template variants driven by region, because a single template would show empty pLDDT panels on 600 pages.",
+      "layout": {
+        "overview": "Header; identity band (logo + consensus + position + composition); annotation band (enrichment); partner band (the R2 answer); members band. Right rail carries stats, module breadcrumb and export.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| utr3_0215      ▮M4 · 3'UTR · 566 instances · 508 genes         name tier: synthesised ⓘ      |",
+          "| 'CU-rich 5-mer, 566 instances / 508 genes'                                                   |",
+          "+==============================================================================================+",
+          "| IDENTITY                                                                                     |",
+          "| ┌ logo ───────────────────────────┐ ┌ consensus repertoire (1) ────────────────────────────┐ |",
+          "| │  2┤    ▁                        │ │ utr3_0215#0  UCUCC   coverage 0.511 · 155 carriers  │ |",
+          "| │bit│  ▁ ██ ▁                     │ │ ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░                                │ |",
+          "| │  0┴──███████──  U C U C C       │ │ ⚠ 'UCUCC' also belongs to utr3_0238 - the two are    │ |",
+          "| │  STREME (published) E=9.2e-14   │ │   NOT interchangeable. [why? →]                      │ |",
+          "| └─────────────────────────────────┘ └─────────────────────────────────────────────────────┘ |",
+          "| ┌ position along the 3'UTR ───────┐ ┌ composition ─────┐ ┌ length ───────┐ ┌ score ──────┐  |",
+          "| │5' ▁▂▄▅▄▅▄▃▄▃▄▃▂▃▃▂▂▂▁▁ 3'       │ │ A ██  C ████     │ │ 5 ██          │ │  ▁▂▅█▅▂▁    │  |",
+          "| │   median_pos 0.444              │ │ G ██  U █████    │ │ 6 ███ … 30 dist│ │ p50 -1.09   │  |",
+          "| └─────────────────────────────────┘ └──────────────────┘ └───────────────┘ └─────────────┘  |",
+          "+==============================================================================================+",
+          "| ANNOTATIONS ON THIS CLUSTER              gate: ☑fdr_cluster ☑fdr_global ☑fdr_cmh  <0.05      |",
+          "|  ⚠ No term passes the triple gate for this cluster (0 of 77 rows). Showing top terms by      |",
+          "|    nominal p, greyed, with their FDR - and instance-level frequency below.                   |",
+          "|   source   term          fold   k/n      p       fdr_cluster                                 |",
+          "|   eCLIP    NIP7          1.9    12/566   0.320   1.00      ░ not significant                 |",
+          "|   ...                                                                                        |",
+          "|  INSTANCE-LEVEL FREQUENCY (independent of cluster enrichment)                                 |",
+          "|   LARP4 18 · PCBP1 15 · PCBP2 14 · DDX55 9 · UPF1 8   ▏▏▏▏▏▏  [ methods: eCLIP ▾ ]           |",
+          "|  ⓘ The manuscript nominates PTBP for this cluster from consensus-sequence reasoning, not     |",
+          "|    from an enrichment in this table. [author inference]                                      |",
+          "+==============================================================================================+",
+          "| WHICH PROTEIN FEATURES DOES IT CO-OCCUR WITH?    ⦿ strict (2)  ○ suggestive npmi>0.1 (18)    |",
+          "|  partner      score   npmi   co   clades  ZNF   protein features                              |",
+          "|  prot_0038    0.428   0.292   21     8    0.00   Immunoglobulin-like domain superfamily 25.4× |",
+          "|  prot_0241    0.31    0.19    14     9    0.02   …                                            |",
+          "|  ⓘ 300 protein clusters co-occur with this cluster at all; 2 pass the gate.                   |",
+          "+==============================================================================================+",
+          "| MEMBERS                          566 instances · 508 genes · [⌕] [region-locked] [⤓ export]  |",
+          "|  gene    tx         pos        sequence            score   bits  tier  annotations           |",
+          "|  IFI16   NM_005531  1204-1208  UCUCC               -0.94   4.9   A     PCBP2, PTBP1          |",
+          "|  ...                                                                    (virtualised list)    |",
+          "+==============================================================================================+"
+        ],
+        "spatial_rules": [
+          "PROTEIN variant swaps the composition panel for a pLDDT distribution (medians span 0.215-0.972 across the 300 protein clusters - a genuinely discriminating ordered-vs-IDR axis) and the annotation sources become InterPro / MobiDB / ELM / IDPO / SignalP with UniProt features. UTR variant shows base composition, no pLDDT, and eCLIP / PAR-CLIP / iCLIP-P / iCLIP-CIMS / miR.",
+          "The 'no significant term' state is a designed band, not an omission - it applies to 437 of 900 clusters and to 377 of 500 utr3 clusters specifically.",
+          "The partner band leads with the PROTEIN side on UTR cluster pages, because 2,614 of 2,620 passing edges (99.8%) have a protein partner with a significant term versus only 1,180 (45.0%) with a significant UTR-side term. On protein cluster pages the same band leads with the UTR consensus.",
+          "The ambiguity warning ('UCUCC also belongs to utr3_0238') is generated automatically wherever a cluster's top consensus string appears in >1 cluster - a direct consequence of the 34,110 multi-cluster unique_motif_ids."
+        ]
+      },
+      "components": ["[VU-C2-01] sequence logo", "[VU-C2-02] logo provenance badge", "[VU-C2-03] logo hover detail", "[VU-C2-04] consensus row with coverage bar", "[VU-C2-05] positional histogram", "[VU-C2-06] median_pos marker", "[VU-C2-07] composition stacked bar", "[VU-C2-08] length distribution", "[VU-C2-09] motif_score distribution", "[VU-C2-10] pLDDT distribution (protein only)", "[VU-C2-11] enrichment table", "[VU-C2-12] enrichment lollipop chart", "[VU-C2-14] FDR gate control", "[VU-C2-17] contingency 2x2 tooltip", "[VU-C2-18] InterPro chip with GO + deep link", "[VU-C2-19] instance-frequency bar", "[VU-C2-20] partner cluster table", "[VU-C2-21] strict/suggestive tier toggle", "[VU-C2-22] per-partner gate chips", "[VU-C2-23] cluster ego network", "[VU-C2-24] member instance browser", "[VU-C2-25] member context micro-view", "[VU-C2-26] tier badge", "[VU-C2-27] ambiguity warning card", "[VU-C2-28] author-inference badge", "[VU-C2-13] cluster stat tiles", "[VU-C2-29] cluster export control"],
+      "interactions": [
+        "The FDR gate is a real control with three checkboxes (fdr_cluster, fdr_global, fdr_cmh_cluster), defaulting to all three per 10_cluster_term_enrichment.py's mandate; unchecking shows the counts change live",
+        "Every enrichment row's fold number opens a 2x2 contingency tooltip with k/n/K/N so the number is auditable",
+        "Clicking a partner row -> #/pair/<p>~<u> (V07 drawer opens over this page rather than navigating away)",
+        "Member list rows expand into a ±20-residue context strip using the same renderer as the gene page, and clicking one navigates to that exact position in #/gene/<sym>?region=utr3&pos=1204",
+        "The 'ego network' toggle replaces the partner table with a small radial graph of this cluster and its partners"
+      ],
+      "entry_points": "#/cluster/<id> ; every motif chip on the gene page ; every node on V05/V06/V08 ; the browse grid ; tours"
+    },
+
+    {
+      "id": "V10",
+      "title": "Gene / transcript page (R1)",
+      "purpose": "Requirement R1 in full: 5'UTR and 3'UTR sequences with highlighted motifs, AND the protein sequence with highlighted motifs - plus the NTScore track that makes it a new object rather than a coloured-text viewer.",
+      "layout": {
+        "overview": "Header + availability badges; a proportional transcript minimap; three region panels stacked (5'UTR, protein, 3'UTR) each with its own track stack; a motif table; a module fingerprint in the right rail.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| ACTB  actin beta          NM_001101 · ENSG00000075624 · ENST00000646664                      |",
+          "| 5'UTR 84 nt · CDS 1,128 nt · protein 375 aa · 3'UTR 600 nt                                   |",
+          "| ✓UniProt P60709  ✓domain track  ✓CLIP peaks  ✓genome coords   ▮M6 (1 of 6)   [⤓ FASTA/CSV]   |",
+          "+==============================================================================================+",
+          "| TRANSCRIPT MAP                                     colour by: ⦿ module ○ cluster ○ region    |",
+          "| 5'UTR ▮▮▮  │███████████ CDS ███████████│ ▮▮ ▮ ▮▮▮▮ ▮ ▮▮▮ 3'UTR                              |",
+          "| ▲ you are here                          20 motifs · 3 utr5 / 4 protein / 13 utr3            |",
+          "+==============================================================================================+",
+          "| ▸ 5'UTR   84 nt · 3 motifs · SeqScore -0.87 · coverage 0.31          [RNA (U)] [wrap 60 ▾]   |",
+          "|  NTScore  ▁▂▃▅▇█▇▅▃▂▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁▂▃▄▅▄▃▂▁▁▂▃▄▅▆▇███▇▆▅▄▃▂▁▁▂▃▄▅▆▇█  (-4 … 0)          |",
+          "|      1   ACUCUUCCAGCCUUCCUUCC UGGGCGAGACCGCGU CGGCCACCGCUGCCCUCC                            |",
+          "|                               └────┬────────┘                                                |",
+          "|                            utr5_0004 [5,15] score -0.41                                      |",
+          "|                            GEMIN5 · PUM1 · SERBP1 (eCLIP)                                    |",
+          "|     61   CCCCAGCCAUGUACGUUGCUAUC                                                             |",
+          "|  eCLIP     ▬▬▬▬                    ▬▬▬▬▬▬                                                    |",
+          "|  PAR-CLIP        ▬▬▬▬▬▬▬▬                                                                    |",
+          "|  iCLIP-P                              ▬▬▬                                                    |",
+          "|  iCLIP-C   ▬▬                                                                                |",
+          "+==============================================================================================+",
+          "| ▸ protein  375 aa · 4 motifs · coverage 0.29                                                 |",
+          "|  pLDDT   ████████████▇▇▆▆▅▅▆▇████████  (0 … 1)                                               |",
+          "|  domains ├── Actin family (IPR004000) ──────────────────────────────────┤                    |",
+          "|  UniProt  ┤Chain├ ┤Helix├  ┤Beta strand├   ┤Modified residue├                                |",
+          "|  MobiDB  ░░░░                                                                                |",
+          "|      1   MDDDIAWQFAVQSCHDNFAPRP EDDAPR ALVCDNGSGLVKAGFAGDDAPRAVFPSIVGRPR                     |",
+          "|                                └──┬─┘                                                        |",
+          "|                             prot_0040 [23,27] pLDDT 0.91 · InterPro Actin family             |",
+          "+==============================================================================================+",
+          "| ▸ 3'UTR  600 nt · 13 motifs · SeqScore -1.19 · coverage 0.26                                  |",
+          "|  NTScore ▁▂▄▆█▇▅▃▂▁▁▂▄▆███▇▅▃▂▁▁▂▃▅▇█▆▄▂▁ …                                                  |",
+          "|      61  … UAUUUGUUUUUUUAUUUUUUAAUGCUAUUUUUAAAUUU …                                          |",
+          "|             └───────────────┬──────────────┘                                                 |",
+          "|              utr3_0313 [82,126] 45 nt · AU-rich                                              |",
+          "|              DDX55 · NKRF · SUB1 · TIAL1 (eCLIP)  ← canonical ARE-binding protein            |",
+          "|  miRNA                     ▮ miR-15-5p/16-5p/…                                               |",
+          "+==============================================================================================+",
+          "| ALL MOTIFS  [⌕] [module: any ▾] [annotated only ☐] [min score ──●──] [cluster ▾]  20 shown   |",
+          "| region  pos       seq            cluster    module  score  bits  annotations                 |",
+          "| utr5    5-15      CGAGACCGCGU    utr5_0004  M6      -0.41  6.1   GEMIN5 PUM1 SERBP1          |",
+          "| utr3    82-126    UAUUUGUUUU…    utr3_0313  M1      -1.31  3.2   DDX55 NKRF SUB1 TIAL1       |",
+          "| prot    23-27     DDAPR          prot_0040  M6      -0.06  4.4   Actin family (IPR004000)    |",
+          "+==============================================================================================+"
+        ],
+        "spatial_rules": [
+          "Sequence is rendered as ONE flat lane per region. Motifs never overlap within a (transcript, region) - max stacking depth is exactly 1 across all 53,367 groups - so there is no interval packing, no lane assignment and no z-ordering. This is the single biggest simplification in the whole build.",
+          "One DOM span per motif-OR-GAP SEGMENT, not per nucleotide: measured p50 89, p99 279, max 381 segments for a page showing all three regions, versus p50 1,940 / max 7,784 per-nucleotide spans.",
+          "EVERY motif span gets its own border/inset outline. 53,729 adjacent pairs abut exactly (gap 0) and 9,838 of those share a cluster - without a separator they fuse into single false motifs.",
+          "~26-31% of characters are highlighted (utr5 median 0.307, utr3 0.261, protein 0.288), so fills are subtle and saturated colour is reserved for the active colour-by channel.",
+          "UTR panels render RNA (U); the protein panel never does, because U there is selenocysteine. A [RNA (U) / DNA (T)] toggle exists for the UTRs only.",
+          "The NTScore track is real per-nucleotide data for both UTRs (from the two h5 caches, verified length-exact); the protein panel gets pLDDT + domain ruler + UniProt features instead, and a caption states plainly that no per-nucleotide score exists for protein.",
+          "Worst case to design against: NM_001351027 at 7,784 nt total and NM_001003665 at 381 segments; a 3'UTR of 7,601 nt with 182 motifs. Only 587 transcripts (3.2%) have a 3'UTR >= 5,000 nt."
+        ]
+      },
+      "components": ["[VU-C1-01] gene identity header", "[VU-C1-02] annotation availability badges", "[VU-C1-03] transcript minimap", "[VU-C1-04] region panel header with SeqScore", "[VU-C1-05] sequence viewer lane", "[VU-C1-06] motif span element", "[VU-C1-07] coordinate ruler", "[VU-C1-08] NTScore area track", "[VU-C1-09] NTScore colour key", "[VU-C1-10] pLDDT track", "[VU-C1-11] InterPro domain ruler", "[VU-C1-12] UniProt feature track", "[VU-C1-13] MobiDB disorder track", "[VU-C1-14] eCLIP lane", "[VU-C1-15] PAR-CLIP lane", "[VU-C1-16] iCLIP-Piranha lane", "[VU-C1-17] iCLIP-CIMS lane", "[VU-C1-18] miRNA site lane", "[VU-C1-19] motif callout popover", "[VU-C1-20] motif table", "[VU-C1-21] annotation chip row", "[VU-C1-22] RBP chip with method-agreement badge", "[VU-C1-23] module fingerprint bar", "[VU-C1-24] colour-by selector", "[VU-C1-25] filter chip bar", "[VU-C1-26] T/U toggle", "[VU-C1-27] wrap-width control", "[VU-C1-28] export control (FASTA/CSV/JSON)", "[VU-C1-29] transcript picker", "[VU-C1-30] motif_score micro-bar", "[VU-C1-31] motif_entropy micro-bar", "[VU-C1-32] PWM-match bits badge", "[VU-C1-33] co-carrier suggestion strip", "[VU-C1-34] region-missing empty state", "[VU-C1-35] no-module explainer", "[VU-C1-36] genome coordinate link-out", "[VU-C1-37] isoform notice"],
+      "interactions": [
+        "Click a motif span -> popover with cluster, score, entropy, pLDDT (protein), PWM-match bits, every annotation chip, and two links: 'open cluster' and 'see this cluster in the network'",
+        "Filter chips re-render the highlight layer in place without a refetch; 'annotated only' is meaningful because 36.1% of instances have no annotation at all",
+        "Colour-by module leaves ~45% of motifs uncoloured (their clusters have no module) - the legend states this rather than letting it look like a bug",
+        "Brushing the transcript minimap scrolls all three panels; brushing the NTScore track selects a coordinate range and filters the motif table to it",
+        "?highlight=prot_0040,utr5_0004 (used by the R3 -> R1 handoff) pulses exactly those spans on load and scrolls the first into view",
+        "215 genes with >1 transcript show a picker; every ENSG/ENST resolves to exactly one RefSeq so no other disambiguation is needed"
+      ],
+      "entry_points": "#/gene/<SYMBOL> ; #/gene/<SYMBOL>?tx=<refseq>&region=<r>&pos=<n>&highlight=<clusters> ; omnibox ; every gene chip in the app ; carrier lists on V07 ; examples on V01"
+    },
+
+    {
+      "id": "V11",
+      "title": "Search results and faceted browse",
+      "purpose": "The raw substrate under the narrative: browse 17,847 genes, 900 clusters, 203 RBPs, 219 miRNA families and 15,979 enrichment terms with visible result counts on every facet.",
+      "layout": {
+        "overview": "Left 260px facet column, right result grid or table. Four tabs: Genes / Clusters / RBPs & miRNAs / Terms.",
+        "wireframe": [
+          "+-------------------+--------------------------------------------------------------------------+",
+          "| GENES  CLUSTERS  RBPs  TERMS                                    900 clusters · 463 named    |",
+          "+-------------------+--------------------------------------------------------------------------+",
+          "| REGION            |  utr3_0215   ▮M4  UCUCC          566 inst  508 genes  ▁▂▄▅▄▃▂▁  2 partners|",
+          "|  ☑ protein  300   |  utr3_0463   ▮M6  UCUUUU         196 inst  180 genes  ▁▁▂▃▇█▅▂  6 partners|",
+          "|  ☑ utr3     500   |  utr5_0004   ▮M6  CGCCGCCACC   1,043 inst  372 genes  ▁▂▃▅▇█   15 partners|",
+          "|  ☑ utr5     100   |  utr5_0079   ▮M5  UAUGG        1,192 inst  640 genes  ██▇▅▃▂▁  8 partners |",
+          "| MODULE            |  utr3_0188   ─   'U-rich 5-mer, 5,755 instances / 4,532 genes'             |",
+          "|  M1 106 · M2 112  |               ⚠ no module · ⚠ no logo · ⚠ no significant term              |",
+          "|  M3 133 · M4  73  |                                                                            |",
+          "|  M5  57 · M6  32  |                                       (virtualised grid, 900 rows max)      |",
+          "|  none      387    |                                                                            |",
+          "| HAS               |                                                                            |",
+          "|  ☐ STREME logo 466|  sort: ⦿ instances ○ genes ○ partners ○ name  ⓘ npmi_raw is not offered     |",
+          "|  ☐ sig. term  463 |                                                                            |",
+          "|  ☐ ≥1 partner 519 |                                                                            |",
+          "| SIZE              |                                                                            |",
+          "|  218 ──●──── 5,755|                                                                            |",
+          "+-------------------+--------------------------------------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "Every facet shows its count BEFORE the click (the ENCODE-portal pattern the survey's prior-art finding recommends). Counts update as other facets are applied.",
+          "The 'none' module facet at 387 and the 'no logo' / 'no significant term' states are first-class facets, not hidden - browsing the gaps is a legitimate use of this site.",
+          "Gene tab rows carry a motif-count sparkbar (utr5 / protein / utr3 as three stacked segments) so a reader can see at a glance which genes are motif-dense.",
+          "RBP tab lists 203 names with their method-membership (166 of 203 appear in exactly one method; only 4 appear in all four) and an alias warning where the alias map applies (U2AF65/U2AF2, TDP43/TARDBP, UNR/CSDE1, IMP3/IGF2BP3, HNRNPH/HNRNPH1)."
+        ]
+      },
+      "components": ["[VU-C1-38] gene result row with motif sparkbar", "[VU-C2-32] cluster result card", "[VU-C2-33] facet checkbox with count", "[VU-C2-34] range slider facet", "[VU-C2-35] sort control with excluded-key note", "[VU-C1-39] RBP facet row with method badges", "[VU-C2-36] miRNA family row", "[VU-C2-37] term search row", "[VU-C4-28] virtualised list container", "[VU-C4-29] result count header", "[VU-C4-30] alias warning inline"],
+      "interactions": ["All filtering is client-side over clusters_index.json (~90 KB) and search_index.json.gz (157 KB); no fetch per keystroke", "Facet state is in the URL so a filtered browse is shareable", "Any result set can be exported to the basket"],
+      "entry_points": "#/browse/* ; 'Browse' in top nav ; omnibox 'see all N results' ; facet links from cluster and gene pages"
+    },
+
+    {
+      "id": "V12",
+      "title": "Verify a figure",
+      "purpose": "The angle's second signature feature. For each published panel: the printed figure on the left, the live interactive equivalent on the right, and a per-claim verdict table underneath with the measured number beside the stated one.",
+      "layout": {
+        "overview": "Index page listing panels from PANELS.md, then a per-panel page in a three-band layout.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| VERIFY  Figure 4c-4e   M5 kinetics                     source: explore_biology/06.mrna_…     |",
+          "+=============================+================================================================+",
+          "|  AS PUBLISHED               |  LIVE FROM THE DATA                                            |",
+          "|  ┌───────────────────────┐  |  metric            bg    0079   0072   both    p                |",
+          "|  │ [Figure4.png, 268 KB] │  |  PUND %            1.9    2.7     8.0   15.6   3e-05   ✓        |",
+          "|  │                       │  |  polysome t½ min   9.9    6.5     5.0    3.4   6e-10   ✓        |",
+          "|  │        [zoom]         │  |  RNA export       43.0     -       -    43.0    ns     ○        |",
+          "|  └───────────────────────┘  |  whole-cell stab 195.0     -       -   195.0    ns     ○        |",
+          "|                             |  cytoplasmic     84.2     -       -    84.2    ns     ○        |",
+          "|                             |  nuclear ret.    83.5     -       -    83.5    ns     ○        |",
+          "|                             |  n = 17,451 / 487 / 212 / 45                                   |",
+          "+=============================+================================================================+",
+          "| CLAIMS ON THIS PANEL                                                                         |",
+          "| ✓ CONFIRMED  'utr5_0079 + prot_0072 → nuclear degradation'                                   |",
+          "|              stated: enrichment · measured: 1.9% → 15.6%, OR 9, p=3e-05                      |",
+          "| ✓ CONFIRMED  'TRA2B showed the strongest nuclear decay (t½=24 min) in M5'                    |",
+          "|              measured: hl_nucdeg 24.0, the smallest among all PUND-positive M5 genes         |",
+          "|              (next: FRA10AC1 42.0, SREK1 55.0, SRSF5 73.0, HNRNPH1 80.0)                     |",
+          "| ○ PARTIAL    four of seven metrics in the same table are not significant for 'both'          |",
+          "|                                                                                              |",
+          "| [ ⤓ export this comparison ]   [ open the M5 module story → ]   [ take the M5 tour → ]       |",
+          "+==============================================================================================+"
+        ],
+        "spatial_rules": [
+          "Verdict badges are exactly four: ✓ CONFIRMED, ○ PARTIAL, ⚠ CONFLICT, ◦ NOT REPRODUCIBLE HERE. Each carries the reason.",
+          "The published image is the PNG, never the .ai/.pdf. Budget-aware: Figure4.png 268 KB is inlined; Figure3.png 1.17 MB and fig1_umap_corrected_npmi.png 1.80 MB are lazy-loaded on that panel's page only.",
+          "Every panel page names its provenance folder from PANELS.md, so a reader can go from 'Fig 3e' to the code that made it."
+        ],
+        "panels": [
+          {"panel": "Fig 3c", "live": "V15 pair UMAP explorer", "verdict_notes": "coordinates come from a v3 tree; the join is 180,000/180,000"},
+          {"panel": "Fig 3d", "live": "V03 GO dotplots", "verdict_notes": "module_GO_enrichment.csv is already filtered to q<0.05 (max q 0.04995); the trusted subset reproduces module_leading_terms.csv exactly"},
+          {"panel": "Fig 3e", "live": "V06 bipartite drill-down on the 52 published nodes", "verdict_notes": "19 of the 52 nodes have no row in cluster_term_labels.csv, including utr3_0215, utr5_0096 and utr5_0090 - shown as an explicit gap"},
+          {"panel": "Fig 4a", "live": "V10 gene pages for the 22 curated exemplars", "verdict_notes": "BLOCKED for M2 by risk R-01 (utr3_0027 vs utr3_0227)"},
+          {"panel": "Fig 4b", "live": "V03 M1/M2 RBP volcano (185 RBPs)", "verdict_notes": "⚠ the published n=667/460 cannot be reproduced; on-disk intermediates hold 858 TFs split 447/411 - flagged as an open item"},
+          {"panel": "Fig 4c", "live": "V03 M3 RIBOmap panel", "verdict_notes": "859 of the 982-gene HeLa panel map"},
+          {"panel": "Fig 4c-4e", "live": "V03 M5 2x2 kinetics", "verdict_notes": "confirmed, with 4 of 7 metrics ns"},
+          {"panel": "Fig 4g", "live": "V13 identity distribution", "verdict_notes": "median sequence identity across the 2,620 pairs"},
+          {"panel": "ED Fig 3a", "live": "V16 annotation coverage", "verdict_notes": "all 8 percentages reproduce exactly under the region mask"},
+          {"panel": "ED Fig 3c", "live": "V03 APEX dumbbell", "verdict_notes": "⚠ CONFLICT: lamina q=0.725 and OMM q=0.551 do not support the manuscript sentence"},
+          {"panel": "ED Fig 3k/l", "live": "V03 M3 identity panel (13 genes)", "verdict_notes": "max pairwise protein identity ~19%, 5'UTR ~55%"},
+          {"panel": "Fig 2b/2e/2f/2g", "live": "V17 isoform case study + NTScore tracks", "verdict_notes": "phyloP deciles and metaprofiles are stated effect sizes, not recomputable here - marked ◦"}
+        ]
+      },
+      "components": ["[VU-C4-31] published figure viewer with zoom", "[VU-C4-32] live-vs-published split frame", "[VU-C4-33] claim card with verdict badge", "[VU-C4-34] stated-vs-measured diff row", "[VU-C4-35] panel provenance chip", "[VU-C4-36] open-item flag", "[VU-C4-16] verify-panel index card"],
+      "interactions": ["Zoom/pan the published PNG; the live pane is a real embedded view, so its own interactions all work", "Each claim card links to the exact file and column that produced the measured number", "'export this comparison' emits a CSV of stated vs measured with the source paths - directly usable in a rebuttal letter"],
+      "entry_points": "#/verify ; #/verify/<panel> ; V01 ; the 'in the paper' chip in the V21 right rail on any view that corresponds to a panel"
+    },
+
+    {
+      "id": "V13",
+      "title": "Why we corrected for paralogy",
+      "purpose": "The most persuasive material in the project, promoted from footnote to first-class view. Answers reviewer question 1 ('is this just paralog-family structure relabelled as biology?') with the authors' own audit.",
+      "layout": {
+        "overview": "Four bands: the leaderboard, the deflation demo, the effective-sample-size gauge, the gate.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| IF YOU RANK BY RAW NPMI, YOU GET THE WRONG ANSWER                                             |",
+          "| sort: ⦿ npmi_raw  ← the only place in this site where this is offered, deliberately          |",
+          "|  rank  pair                    npmi_raw  clades  ZNF frac  passes  verdict                   |",
+          "|   1    prot_0228 × utr5_0020    0.897      2      0.990      ✗    ZNF clade artifact         |",
+          "|   2    …                        0.88x      …      …          ✗    ZNF clade artifact         |",
+          "|   …                                                                                          |",
+          "|   n    prot_0038 × utr5_0096    0.5xx     11      0.01x      ✓    survives                    |",
+          "|                                                                                              |",
+          "|  of the top 30: ████████████████████████░░░░░ 25 ZNF clade artifact                          |",
+          "|                 ░░░░ 4 single-clade / weak    ░ 1 survives                                   |",
+          "+==============================================================================================+",
+          "| THE SAME GO TERMS, COUNTED THREE WAYS                                                        |",
+          "|  DNA-binding transcription repressor activity   genes 74 │ families 22 │ deep clades 9       |",
+          "|                                                 ██████████ │ ███ │ █                        |",
+          "|  ⓘ naive gene counts inflate ZNF terms ~8×; only the clade count is evidence.                |",
+          "+==============================================================================================+",
+          "| HOW MANY INDEPENDENT GENES ARE THERE, REALLY?                                                |",
+          "|  raw N          18,068  ████████████████████████████████████████                             |",
+          "|  effective Meff  2,342  █████                                       13.0%                    |",
+          "|  ZNF genes raw     547  █                                                                    |",
+          "|  ZNF effective     9.0  ▏                                            1.7%                    |",
+          "|  ⓘ 470 of the 547 ZNF genes fall into a single Louvain community - the whole KRAB-ZNF        |",
+          "|    expansion is about one block.                                                             |",
+          "+==============================================================================================+",
+          "| THE GATE THAT REMOVES THEM   (all four must hold simultaneously)                              |",
+          "|  clade_concentration < 0.35   ·  n_indep_clades ≥ 8                                          |",
+          "|  npmi_mip_APC > 0.10          ·  co_count ≥ 10                                               |",
+          "|  → 2,620 of 166,615 co-occurring pairs (1.6%) pass                                            |",
+          "|  edge weight = MIp × (1 − clade_concentration) × log1p(n_indep_clades)                        |",
+          "|                                                                                              |",
+          "|  ‟the ZNF interactions are one clade counted hundreds of times, and crucially they survive    |",
+          "|   p-value-based corrections; only an independent-evidence criterion removes them.”            |",
+          "|                                            — REPORT.md, quoted verbatim                       |",
+          "+==============================================================================================+"
+        ]
+      },
+      "components": ["[VU-C4-37] raw-NPMI leaderboard with verdicts", "[VU-C4-38] verdict proportion bar", "[VU-C4-39] deflation triple-bar", "[VU-C4-40] Meff gauge", "[VU-C4-41] gate condition card", "[VU-C4-42] verbatim quote block with source", "[VU-C4-43] CMH family-stratified table", "[VU-C4-44] independent-origins comparison"],
+      "interactions": ["Each leaderboard row links to #/pair/<p>~<u> so the reader can inspect a rejected pair with the same drawer as an accepted one", "The verdict column is the authors' own hand-written text, shown with its file provenance", "Toggling 'apply the gate' animates the leaderboard down to the survivors"],
+      "entry_points": "#/evidence/paralogy ; the 'why?' link in the persistent caveat strip ; the ZNF tour ; V01 funnel ; every ZNF badge in the app"
+    },
+
+    {
+      "id": "V14",
+      "title": "Methods walkthrough and glossary",
+      "purpose": "Answers 'what is a motif here, operationally?' - reviewer question 3 - and gives every technical term in the UI a hoverable definition.",
+      "layout": {
+        "overview": "Sticky pill nav + horizontal flowbar + numbered step cards, reusing the structure of MODULE_IDENTIFICATION_WALKTHROUGH.html (43fr prose / 57fr detail grid). A glossary drawer is reachable from any term anywhere.",
+        "wireframe": [
+          "+----------------------------------------------------------------------------------------------+",
+          "| ① model  ② NTScore  ③ Δ-attention  ④ instances  ⑤ clusters  ⑥ consensus  ⑦ NPMI  ⑧ modules  |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| [model]→[NTScore]→[Δ-attn]→[motif instances]→[k-means]→[STREME]→[NPMI+APC]→[gate]→[Louvain]  |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| ④ MOTIF INSTANCES                       │ 889,215 rows                                       |",
+          "| A motif instance is one substring, in   │ utr3 515,752 · protein 254,466 · utr5 118,997      |",
+          "| one region, of one transcript, where    │ 18,093 transcripts · 17,847 gene symbols            |",
+          "| Δ-attention peaks AND NTScore is high.  │ coords 0-based, INCLUSIVE both ends                 |",
+          "| It is NOT a PWM scan hit.               │ seq[start : end+1]  ✓ 889,215/889,215              |",
+          "|                                         │ lengths: protein p50 8, max 535 · UTR max 55        |",
+          "+----------------------------------------------------------------------------------------------+",
+          "| FOUR NESTED OBJECTS - keep them distinct                                                      |",
+          "|  instance (889,215) ⊂ unique_motif_id (577,186) ⊂ motif_cluster (900) ⊂ module (513 of 900)   |",
+          "|  ⚠ a unique_motif_id can belong to MANY clusters: 34,110 do; 'CTGGA' spans 176 utr3 clusters. |",
+          "+----------------------------------------------------------------------------------------------+"
+        ]
+      },
+      "components": ["[VU-C4-45] methods flowbar", "[VU-C4-46] step card", "[VU-C4-47] hierarchy diagram", "[VU-C4-48] glossary drawer", "[VU-C4-49] term tooltip", "[VU-C4-50] delta-attention schematic (labelled illustrative)", "[VU-C4-42] verbatim quote block"],
+      "interactions": ["Any dotted-underlined term anywhere in the app opens the glossary drawer at that entry", "The Δ-attention diagram carries a permanent 'illustrative schematic - Fig 3a is drawn from synthetic data; no delta-attention matrices are stored' label"],
+      "entry_points": "#/methods ; #/glossary#<term> ; every dotted term in the app ; the ⓘ on the caveat strip"
+    },
+
+    {
+      "id": "V15",
+      "title": "Pair UMAP explorer (interactive Fig 3c)",
+      "purpose": "All 180,000 protein x UTR pairs as one scatter, so the reader can see where the 2,620 survivors sit in the whole space.",
+      "layout": {
+        "overview": "Full-width canvas with a right control panel; brushing selects pairs and populates a linked table.",
+        "wireframe": [
+          "+---------------------------------------------------+------------------------------------------+",
+          "|                                                   | COLOUR BY                                |",
+          "|         · · ·  ·   ·                              |  ○ npmi_mip_APC   ⦿ module               |",
+          "|      · ·  ·· ▪▪· ··   ·                           |  ○ passes_phylo_filter                   |",
+          "|    ·  ·▪▪▪▪▪▪▪▪▪·· ·  ·                           |                                          |",
+          "|   · ·▪▪█████▪▪▪▪· · ·                             | SHOW                                     |",
+          "|  ·  ·▪▪███████▪▪·· ·                              |  ☑ all 180,000 (grey backdrop)           |",
+          "|   · ··▪▪▪████▪▪· ·                                |  ☑ 2,620 passing (highlighted)           |",
+          "|     · ··▪▪▪▪·· ·                                  |  ☐ 11,966 module-assigned                |",
+          "|                                                   |                                          |",
+          "|   [brush]                                         | SELECTION  412 pairs · 18 pass           |",
+          "|                                                   |  prot_0129 × utr5_0022  0.940            |",
+          "|  180,000 points · canvas · quadtree hover         |  prot_0101 × utr3_0106  0.858            |",
+          "|                                                   |  [ ⤓ ]  [ open in network → ]            |",
+          "+---------------------------------------------------+------------------------------------------+"
+        ],
+        "spatial_rules": [
+          "Canvas 2D with a d3-quadtree for hover; 180,000 SVG circles is far past the ceiling and the measured worst case elsewhere in the app is 381 elements.",
+          "Payload is the quantised binary (uint16 xy + uint16 npmi + uint8 module = 0.994 MB gz), loaded only on this route.",
+          "A caption states that only 11,966 of 180,000 points belong to a module and that these are v3-tree coordinates joined to v4 scores, per the figure README's own warning."
+        ]
+      },
+      "components": ["[VU-C3-37] canvas scatter", "[VU-C3-38] quadtree hover readout", "[VU-C3-39] brush selection", "[VU-C3-40] colour-channel selector", "[VU-C3-41] layer visibility checkboxes", "[VU-C3-42] selection table", "[VU-C3-43] density backdrop"],
+      "interactions": ["Brush -> selection table -> 'open in network' filters V05 to the selected edges", "Hover -> the pair id, its four gate values and its pass/fail", "Colour by passes_phylo_filter makes the 1.6% survival rate visible as a spatial pattern"],
+      "entry_points": "#/umap ; V12 Fig 3c panel ; V01 funnel row 1"
+    },
+
+    {
+      "id": "V16",
+      "title": "About the data - coverage, gaps and provenance",
+      "purpose": "Answers 'how complete is this, and what is missing?' before the reader discovers a hole by accident. Also the site's honesty ledger.",
+      "layout": {
+        "overview": "Three bands: annotation coverage (per database, per region, with denominators); the known-gaps register; the provenance manifest.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| ANNOTATION COVERAGE           denominators from annotation_coverage_stats.json (human)        |",
+          "|  RNA layer                                    protein layer                                   |",
+          "|  RBP (any of 4 CLIP)  51.4%  ████████▌        UniProt        90.2%  ██████████████▌          |",
+          "|   of 634,749 UTR motifs                        MobiDB         87.2%  █████████████▉          |",
+          "|  TargetScan miRNA      4.7%  ▊                 InterPro       67.8%  ██████████▊              |",
+          "|   of 515,752 3'UTR motifs                      IDPO            0.75% ▏                        |",
+          "|                                                ELM            0.31% ▏                        |",
+          "|                                                SignalP        0.12% ▏ (298 motifs)           |",
+          "|  any annotation  63.9% of 889,215                                                            |",
+          "|                                                                                              |",
+          "|  ⓘ MobiDB / IDPO / SignalP are masked to protein rows. Unmasked, the upstream builders        |",
+          "|    put protein-disorder terms on 67.0% of 5'UTR and 25.3% of 3'UTR motifs (212,449 rows).     |",
+          "|    Applying the mask reproduces all 8 published percentages exactly.  [ show the check ]      |",
+          "+==============================================================================================+",
+          "| METHOD AGREEMENT ON RBP CALLS      634,749 UTR motifs                                         |",
+          "|  0 methods 308,753 ████████████  1: 144,288 ██████  2: 95,096 ████  3: 57,474 ██  4: 29,138 █ |",
+          "|  ⓘ only 4 of 203 RBP names appear in all four methods; 166 appear in exactly one.             |",
+          "+==============================================================================================+",
+          "| KNOWN GAPS                                                       affected      workaround     |",
+          "|  clusters with no STREME logo                          434 / 900   ▓▓▓▓▓░░░░░  refilled ✓/✗  |",
+          "|  clusters with no term at FDR<0.05                     437 / 900   ▓▓▓▓▓░░░░░  3-tier naming |",
+          "|  clusters with no module                               387 / 900   ▓▓▓▓░░░░░░  explained     |",
+          "|  transcripts with no module                          9,247 /18,093 ▓▓▓▓▓░░░░░  explained     |",
+          "|  transcripts with no motifs at all                   1,117         ▏           listed ▸      |",
+          "|  edges with no consensus PAIR                        1,190 / 2,620 ▓▓▓▓░░░░░░  3-tier drawer |",
+          "|  no per-nt score for 5'UTR? no - both UTRs covered ✓ ; protein: none exists                  |",
+          "|  no delta-attention matrices stored anywhere         all           ██████████  schematic only|",
+          "+==============================================================================================+",
+          "| PROVENANCE                                                                     [ manifest ⤓ ] |",
+          "|  input file                                          bytes      mtime       sha256           |",
+          "|  motif_full_annotations.parquet                    46,673,…   2026-05-…   a1b2…              |",
+          "|  cca_winner_umap.npy  ⚠ lives in a v3 tree          1,440,…   2026-05-21  c3d4…              |",
+          "+==============================================================================================+"
+        ]
+      },
+      "components": ["[VU-C4-51] coverage bar set with denominators", "[VU-C4-52] source x region coverage matrix", "[VU-C4-53] method-agreement histogram", "[VU-C4-54] known-gaps register", "[VU-C4-55] excluded-transcript list", "[VU-C4-56] provenance manifest table", "[VU-C4-57] region-mask check card", "[VU-C4-58] alias map table"],
+      "interactions": ["'show the check' expands the eight recomputed percentages next to the published ones (the s18_verify_filter.py result), which is the site's own proof that the mask is right", "The excluded-transcript list is searchable and states the reason per transcript (666 exceed the 7,784 nt model context; 451 are under the cap but still have no motifs)", "Manifest is downloadable as JSON"],
+      "entry_points": "#/about/data ; every coverage badge in the app ; every ⚠ gap marker ; the footer"
+    },
+
+    {
+      "id": "V17",
+      "title": "Isoform case study (CD47 / CD44 / BIRC3)",
+      "purpose": "The only isoform-resolved data in the project, shipped as a fixed page rather than a generic feature, because the main tables carry one transcript per gene.",
+      "layout": {
+        "overview": "Gene selector; two stacked NTScore tracks (long UTR above, short UTR below) aligned at the stop codon; ELAVL1 site overlay; a note explaining why this is not a generic capability.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| ISOFORM CASE STUDY   ⦿ CD47   ○ CD44   ○ BIRC3        (Fig 2g)                               |",
+          "+==============================================================================================+",
+          "| long 3'UTR (LU)  4,197 nt                                                                    |",
+          "|  ▁▂▄▆█▇▅▃▂▁▁▂▃▅▇█▆▄▂▁▁▂▄▆█▇▅▃▂▁▁▂▃▄▅▆▇█▇▅▃▂▁ …                                              |",
+          "|  ELAVL1 ▮   ▮▮      ▮        ▮▮▮      ▮       ▮▮                                             |",
+          "| short 3'UTR (SU)                                                                             |",
+          "|  ▁▂▄▆█▇▅▃▂▁▁▂▃▅▇█▆▄▂▁                                                                        |",
+          "|  ELAVL1 ▮   ▮▮                                                                               |",
+          "|                                                                                              |",
+          "| ⓘ 1,037 ELAVL1 site calls (FIMO / ATtRACT) with score, p and q.                              |",
+          "| ⓘ Why is this not available for every gene? The motif table holds one transcript per gene    |",
+          "|   (18,093 transcripts, 17,847 symbols - essentially the longest isoform). A generic isoform   |",
+          "|   selector would be misleading, so it is not offered.                                        |",
+          "+==============================================================================================+"
+        ]
+      },
+      "components": ["[VU-C1-40] paired NTScore comparator", "[VU-C1-41] ELAVL1 site overlay", "[VU-C1-42] isoform explainer card", "[VU-C1-08] NTScore area track"],
+      "interactions": ["Brush either track to compare the same coordinate window", "Click an ELAVL1 site for its FIMO score / p / q / matched_sequence", "Toggle a difference track (LU minus SU over the shared region)"],
+      "entry_points": "#/case/isoforms ; V12 Fig 2g panel ; the isoform notice on any gene page whose gene is one of the five"
+    },
+
+    {
+      "id": "V19",
+      "title": "Not found / excluded / unassigned",
+      "purpose": "Three distinct empty states designed as content, so an absence never reads as a bug. This is a named view because the survey identifies 'gene not found' as the genre's most common dead end.",
+      "layout": {
+        "overview": "One template, three variants, each with a reason, a number and a next action.",
+        "wireframe": [
+          "+==============================================================================================+",
+          "| TTN                                                                                          |",
+          "| ✗ TTN is in the transcript table but has NO motifs.                                           |",
+          "|                                                                                              |",
+          "|   NM_001267550 · 37,239 nt                                                                   |",
+          "|   The model's context limit is 7,784 nt. 666 transcripts exceed it and none of them carry     |",
+          "|   motifs. A further 451 transcripts are under the cap but still have none.                    |",
+          "|                                                                                              |",
+          "|   longest motif-bearing transcript ├──────┤ 7,784                                             |",
+          "|   TTN                             ├───────────────────────────────────────────────┤ 37,239   |",
+          "|                                                                                              |",
+          "|   [ browse the 1,117 excluded transcripts ]   [ search again ]                                |",
+          "+==============================================================================================+",
+          "|                     -- variant 2 (missing one track) --                                       |",
+          "|  This transcript has no 5'UTR motifs. The 5'UTR sequence is shown below without highlights.   |",
+          "|  808 of 18,093 transcripts have no 5'UTR motifs (87 have no 3'UTR motifs, 17 no protein).     |",
+          "+==============================================================================================+",
+          "|                     -- variant 3 (no module) --                                               |",
+          "|  utr3_0188 is not assigned to any of the six modules.                                        |",
+          "|  Its co-occurrence pairs never passed the four-condition gate, or its Louvain community had   |",
+          "|  <2 protein motifs / <2 UTR motifs / <3 edges. 387 of 900 clusters are in this state.        |",
+          "|  This is a result of the filter, not missing data.                                           |",
+          "|  ▸ its best SUB-threshold partners (greyed, with their gate values)                           |",
+          "+==============================================================================================+"
+        ]
+      },
+      "components": ["[VU-C4-59] excluded-transcript explainer", "[VU-C4-60] length-vs-cap comparison bar", "[VU-C1-34] missing-track state", "[VU-C1-35] no-module explainer", "[VU-C2-38] sub-threshold partner table (greyed)", "[VU-C4-61] did-you-mean suggestions"],
+      "interactions": ["'did you mean' fuzzy-matches the 17,847 symbols for typos", "The sub-threshold partner table is sortable but every row is visually marked as below threshold and carries its four gate values"],
+      "entry_points": "any failed lookup ; any cluster with module==null ; any region with zero motifs ; #/browse/excluded"
+    },
+
+    {
+      "id": "V20",
+      "title": "Export basket, snapshot and citation",
+      "purpose": "Turns the site from a figure viewer into a citable resource. Every view can contribute rows; the basket exports them with their provenance.",
+      "layout": {
+        "overview": "A slide-over tray plus a small static page for the snapshot and DOI.",
+        "wireframe": [
+          "+---------------------------------------------------+",
+          "| EXPORT BASKET                    7 items      ✕   |",
+          "+---------------------------------------------------+",
+          "| ▸ genes (3)          ACTB, TRA2B, MLXIPL          |",
+          "| ▸ clusters (2)       utr5_0004, utr3_0463         |",
+          "| ▸ pairs (1)          prot_0040 × utr5_0004        |",
+          "| ▸ tables (1)         M5 2x2 kinetics              |",
+          "+---------------------------------------------------+",
+          "| format:  ⦿ CSV   ○ JSON   ○ FASTA (sequences)     |",
+          "| ☑ include provenance columns (source file, column)|",
+          "| ☑ include the snapshot version and DOI            |",
+          "|                          [ download ]             |",
+          "+---------------------------------------------------+"
+        ]
+      },
+      "components": ["[VU-C4-04] basket button + badge", "[VU-C4-62] basket tray", "[VU-C4-63] format selector", "[VU-C4-64] provenance-columns toggle", "[VU-C4-06] citation block", "[VU-C4-05] snapshot chip"],
+      "interactions": ["Everything is a client-side Blob from data already in memory - no server, near-zero implementation cost", "Provenance columns name the exact source file and column for every value, so an exported CSV is self-documenting", "The citation block offers BibTeX and a plain-text form including the snapshot version and the Zenodo DOI"],
+      "entry_points": "the ⤓ button in V21 chrome ; the export control on every table in every view"
+    }
+  ]
+}
